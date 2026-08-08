@@ -16,7 +16,7 @@ const problemSchema = new Schema({
         required:true,
     },
     tags:{
-        type:String,
+        type:[String],
         enum:['array','linkedList','graph','dp'],
         required:true
     },
@@ -81,11 +81,14 @@ const problemSchema = new Schema({
         ref:'user',
         required:true
     }
+}, {
+    timestamps: true
 })
 
+problemSchema.index({ title: 1 });
+problemSchema.index({ difficulty: 1 });
+problemSchema.index({ tags: 1 });
 
 const Problem = mongoose.model('problem',problemSchema);
 
 module.exports = Problem;
-
-
