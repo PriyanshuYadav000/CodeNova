@@ -23,7 +23,7 @@ const submissionSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'wrong', 'error'],
+    enum: ['pending', 'accepted', 'wrong_answer', 'runtime_error', 'time_limit_exceeded', 'memory_limit_exceeded', 'compilation_error', 'internal_error'],
     default: 'pending'
   },
   runtime: {
