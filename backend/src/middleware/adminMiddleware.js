@@ -12,6 +12,16 @@ const adminMiddleware = async (req,res,next)=>{
 
         const payload = jwt.verify(token,process.env.JWT_KEY);
 
+        // Redis ke blockList mein persent toh nahi hai
+
+        const IsBlocked = await redisClient.exists(`token:${token}`);
+
+        if(IsBlocked)
+            throw new Error("Invalid Token");
+
+        if(payload.role!='admin')
+            throw new Error("Invalid Token");
+
         const {_id} = payload;
 
         if(!_id){
@@ -20,19 +30,9 @@ const adminMiddleware = async (req,res,next)=>{
 
         const result = await User.findById(_id);
 
-        if(payload.role!='admin')
-            throw new Error("Invalid Token");
-
         if(!result){
             throw new Error("User Doesn't Exist");
         }
-
-        // Redis ke blockList mein persent toh nahi hai
-
-        const IsBlocked = await redisClient.exists(`token:${token}`);
-
-        if(IsBlocked)
-            throw new Error("Invalid Token");
 
         req.result = result;
 
@@ -40,7 +40,11 @@ const adminMiddleware = async (req,res,next)=>{
         next();
     }
     catch(err){
-        res.status(401).send("Error: "+ err.message)
+        res.status(401).json({
+            success: false,
+            message: 'Authentication required.',
+            error: null
+        });
     }
 
 }
