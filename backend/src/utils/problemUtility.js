@@ -10,7 +10,15 @@ const getLanguageById = (lang)=>{
     }
 
 
-    return language[lang.toLowerCase()];
+    if(typeof lang !== 'string')
+      throw new Error('Unsupported language provided to Judge0.');
+
+    const languageId = language[lang.toLowerCase()];
+
+    if(!languageId)
+      throw new Error(`Unsupported language provided to Judge0: ${lang}`);
+
+    return languageId;
 }
 
 
@@ -38,7 +46,7 @@ async function fetchData() {
 		const response = await axios.request(options);
 		return response.data;
 	} catch (error) {
-		console.error(error);
+		throw new Error(`Judge0 batch submission failed: ${error.message}`);
 	}
 }
 
@@ -47,11 +55,7 @@ async function fetchData() {
 }
 
 
-const waiting = async(timer)=>{
-  setTimeout(()=>{
-    return 1;
-  },timer);
-}
+const waiting = (timer)=> new Promise((resolve)=> setTimeout(resolve,timer));
 
 // ["db54881d-bcf5-4c7b-a2e3-d33fe7e25de7","ecc52a9b-ea80-4a00-ad50-4ab6cc3bb2a1","1b35ec3b-5776-48ef-b646-d5522bdeb2cc"]
 
@@ -76,23 +80,26 @@ async function fetchData() {
 		const response = await axios.request(options);
 		return response.data;
 	} catch (error) {
-		console.error(error);
+		throw new Error(`Judge0 result polling failed: ${error.message}`);
 	}
 }
 
 
- while(true){
+ const maxPollingAttempts = 30;
 
- const result =  await fetchData();
+ for(let attempt = 0; attempt < maxPollingAttempts; attempt++){
+  const result =  await fetchData();
 
   const IsResultObtained =  result.submissions.every((r)=>r.status_id>2);
 
   if(IsResultObtained)
     return result.submissions;
 
-  
-  await waiting(1000);
-}
+  if(attempt < maxPollingAttempts - 1)
+    await waiting(1000);
+ }
+
+ throw new Error('Code execution timed out.');
 
 
 
@@ -123,4 +130,3 @@ module.exports = {getLanguageById,submitBatch,submitToken,executeJudge0};
 
 
 // 
-
