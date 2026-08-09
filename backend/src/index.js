@@ -12,19 +12,26 @@ const cors = require('cors')
 // console.log("Hello")
 
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: process.env.CLIENT_URL,
     credentials: true 
 }))
 
 app.use(express.json());
 app.use(cookieParser());
 
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'CodeNova API is healthy'
+    });
+});
+
 app.use('/user',authRouter);
 app.use('/problem',problemRouter);
 app.use('/submission',submitRouter);
 
 
-const InitalizeConnection = async ()=>{
+const initializeConnection = async ()=>{
     try{
 
         await Promise.all([main(),redisClient.connect()]);
@@ -41,5 +48,4 @@ const InitalizeConnection = async ()=>{
 }
 
 
-InitalizeConnection();
-
+initializeConnection();
