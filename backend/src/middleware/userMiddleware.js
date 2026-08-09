@@ -12,6 +12,13 @@ const userMiddleware = async (req,res,next)=>{
 
         const payload = jwt.verify(token,process.env.JWT_KEY);
 
+        // Redis ke blockList mein persent toh nahi hai
+
+        const IsBlocked = await redisClient.exists(`token:${token}`);
+
+        if(IsBlocked)
+            throw new Error("Invalid Token");
+
         const {_id} = payload;
 
         if(!_id){
@@ -24,20 +31,17 @@ const userMiddleware = async (req,res,next)=>{
             throw new Error("User Doesn't Exist");
         }
 
-        // Redis ke blockList mein persent toh nahi hai
-
-        const IsBlocked = await redisClient.exists(`token:${token}`);
-
-        if(IsBlocked)
-            throw new Error("Invalid Token");
-
         req.result = result;
 
 
         next();
     }
     catch(err){
-        res.status(401).send("Error: "+ err.message)
+        res.status(401).json({
+            success: false,
+            message: 'Authentication required.',
+            error: null
+        });
     }
 
 }
