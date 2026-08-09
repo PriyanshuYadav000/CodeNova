@@ -1,7 +1,26 @@
 const Problem = require("../models/problem");
 const Submission = require("../models/submission");
 const User = require("../models/user");
-const {getLanguageById,submitBatch,submitToken} = require("../utils/problemUtility");
+const {executeJudge0} = require("../utils/problemUtility");
+
+const judge0StatusToSubmissionStatus = {
+  4: 'wrong_answer',
+  5: 'time_limit_exceeded',
+  6: 'compilation_error',
+  7: 'runtime_error',
+  8: 'runtime_error',
+  9: 'runtime_error',
+  10: 'runtime_error',
+  11: 'runtime_error',
+  12: 'runtime_error',
+  13: 'internal_error',
+  14: 'runtime_error',
+  15: 'memory_limit_exceeded'
+};
+
+const getSubmissionStatus = (judge0StatusId) => (
+  judge0StatusToSubmissionStatus[judge0StatusId] || 'internal_error'
+);
 
 const submitCode = async (req,res)=>{
    
@@ -20,10 +39,12 @@ const submitCode = async (req,res)=>{
       if(language==='cpp')
         language='c++'
       
-      console.log(language);
+      // console.log(language);
       
     //    Fetch the problem from database
        const problem =  await Problem.findById(problemId);
+       if(!problem)
+        return res.status(404).send("Problem not found");
     //    testcases(Hidden)
     
     //   Kya apne submission store kar du pehle....
@@ -38,21 +59,7 @@ const submitCode = async (req,res)=>{
 
     //    Judge0 code ko submit karna hai
     
-    const languageId = getLanguageById(language);
-   
-    const submissions = problem.hiddenTestCases.map((testcase)=>({
-        source_code:code,
-        language_id: languageId,
-        stdin: testcase.input,
-        expected_output: testcase.output
-    }));
-
-    
-    const submitResult = await submitBatch(submissions);
-    
-    const resultToken = submitResult.map((value)=> value.token);
-
-    const testResult = await submitToken(resultToken);
+    const testResult = await executeJudge0(code, language, problem.hiddenTestCases);
     
 
     // submittedResult ko update karo
@@ -69,14 +76,8 @@ const submitCode = async (req,res)=>{
            runtime = runtime+parseFloat(test.time)
            memory = Math.max(memory,test.memory);
         }else{
-          if(test.status_id==4){
-            status = 'error'
-            errorMessage = test.stderr
-          }
-          else{
-            status = 'wrong'
-            errorMessage = test.stderr
-          }
+          status = getSubmissionStatus(test.status_id);
+          errorMessage = test.stderr
         }
     }
 
@@ -94,12 +95,14 @@ const submitCode = async (req,res)=>{
     
     // req.result == user Information
 
-    if(!req.result.problemSolved.includes(problemId)){
-      req.result.problemSolved.push(problemId);
-      await req.result.save();
-    }
-    
     const accepted = (status == 'accepted')
+
+    if(accepted){
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { problemSolved: problemId }
+      });
+    }
+
     res.status(201).json({
       accepted,
       totalTestCases: submittedResult.testCasesTotal,
@@ -129,32 +132,20 @@ const runCode = async(req,res)=>{
 
    //    Fetch the problem from database
       const problem =  await Problem.findById(problemId);
+      if(!problem)
+        return res.status(404).send("Problem not found");
    //    testcases(Hidden)
       if(language==='cpp')
         language='c++'
 
    //    Judge0 code ko submit karna hai
 
-   const languageId = getLanguageById(language);
-
-   const submissions = problem.visibleTestCases.map((testcase)=>({
-       source_code:code,
-       language_id: languageId,
-       stdin: testcase.input,
-       expected_output: testcase.output
-   }));
-
-
-   const submitResult = await submitBatch(submissions);
-   
-   const resultToken = submitResult.map((value)=> value.token);
-
-   const testResult = await submitToken(resultToken);
+   const testResult = await executeJudge0(code, language, problem.visibleTestCases);
 
     let testCasesPassed = 0;
     let runtime = 0;
     let memory = 0;
-    let status = true;
+    let status = 'accepted';
     let errorMessage = null;
 
     for(const test of testResult){
@@ -163,21 +154,15 @@ const runCode = async(req,res)=>{
            runtime = runtime+parseFloat(test.time)
            memory = Math.max(memory,test.memory);
         }else{
-          if(test.status_id==4){
-            status = false
-            errorMessage = test.stderr
-          }
-          else{
-            status = false
-            errorMessage = test.stderr
-          }
+          status = getSubmissionStatus(test.status_id);
+          errorMessage = test.stderr
         }
     }
 
    
   
    res.status(201).json({
-    success:status,
+    success:status == 'accepted',
     testCases: testResult,
     runtime,
     memory
@@ -192,24 +177,3 @@ const runCode = async(req,res)=>{
 
 module.exports = {submitCode,runCode};
 
-
-
-//     language_id: 54,
-//     stdin: '2 3',
-//     expected_output: '5',
-//     stdout: '5',
-//     status_id: 3,
-//     created_at: '2025-05-12T16:47:37.239Z',
-//     finished_at: '2025-05-12T16:47:37.695Z',
-//     time: '0.002',
-//     memory: 904,
-//     stderr: null,
-//     token: '611405fa-4f31-44a6-99c8-6f407bc14e73',
-
-
-// User.findByIdUpdate({
-// })
-
-//const user =  User.findById(id)
-// user.firstName = "Mohit";
-// await user.save();

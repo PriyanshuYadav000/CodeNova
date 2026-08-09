@@ -98,8 +98,22 @@ async function fetchData() {
 
 }
 
+const executeJudge0 = async (sourceCode, language, testCases) => {
+  const languageId = getLanguageById(language);
+  const submissions = testCases.map((testcase) => ({
+    source_code: sourceCode,
+    language_id: languageId,
+    stdin: testcase.input,
+    expected_output: testcase.output
+  }));
 
-module.exports = {getLanguageById,submitBatch,submitToken};
+  const submitResult = await submitBatch(submissions);
+  const resultToken = submitResult.map((value) => value.token);
+
+  return submitToken(resultToken);
+};
+
+module.exports = {getLanguageById,submitBatch,submitToken,executeJudge0};
 
 
 
@@ -109,5 +123,4 @@ module.exports = {getLanguageById,submitBatch,submitToken};
 
 
 // 
-
 
