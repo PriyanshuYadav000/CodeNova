@@ -1,5 +1,5 @@
 const redisClient = require("../config/redis");
-const User = require("../models/user");
+const prisma = require('../config/prisma');
 const validate = require('../utils/validator');
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
@@ -21,7 +21,7 @@ const clearTokenCookieOptions = {
 const userResponse = (user) => ({
     firstName: user.firstName,
     emailId: user.emailId,
-    _id: user._id,
+    _id: user.id,
     role: user.role
 });
 
@@ -33,9 +33,9 @@ const sendError = (res, status, message) => {
     });
 };
 
-const registrationErrorStatus = (err) => (err && err.code === 11000 ? 409 : 400);
+const registrationErrorStatus = (err) => (err && err.code === 'P2002' ? 409 : 400);
 const registrationErrorMessage = (err) => (
-    err && err.code === 11000
+    err && err.code === 'P2002'
         ? 'An account with this email already exists.'
         : 'Please provide valid registration details.'
 );
@@ -43,11 +43,21 @@ const registrationErrorMessage = (err) => (
 const register = async (req, res) => {
     try {
         validate(req.body);
-        const { emailId, password } = req.body;
+        const { firstName, lastName, emailId, age, password } = req.body;
+        const normalizedEmailId = emailId.trim().toLowerCase();
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await User.create({ ...req.body, password: hashedPassword, role: 'user' });
+        const user = await prisma.user.create({
+            data: {
+                firstName,
+                lastName,
+                emailId: normalizedEmailId,
+                age,
+                password: hashedPassword,
+                role: 'user'
+            }
+        });
         const token = jwt.sign(
-            { _id: user._id, emailId, role: 'user' },
+            { _id: user.id, emailId: user.emailId, role: 'user' },
             process.env.JWT_KEY,
             { expiresIn: 60 * 60 }
         );
@@ -71,7 +81,9 @@ const login = async (req, res) => {
             return sendError(res, 400, 'Email and password are required.');
         }
 
-        const user = await User.findOne({ emailId });
+        const user = await prisma.user.findUnique({
+            where: { emailId: emailId.trim().toLowerCase() }
+        });
 
         if (!user) {
             return sendError(res, 401, 'Invalid email or password.');
@@ -84,7 +96,7 @@ const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { _id: user._id, emailId, role: user.role },
+            { _id: user.id, emailId: user.emailId, role: user.role },
             process.env.JWT_KEY,
             { expiresIn: 60 * 60 }
         );
@@ -127,11 +139,21 @@ const logout = async (req, res) => {
 const adminRegister = async (req, res) => {
     try {
         validate(req.body);
-        const { emailId, password } = req.body;
+        const { firstName, lastName, emailId, age, password } = req.body;
+        const normalizedEmailId = emailId.trim().toLowerCase();
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await User.create({ ...req.body, password: hashedPassword });
+        const user = await prisma.user.create({
+            data: {
+                firstName,
+                lastName,
+                emailId: normalizedEmailId,
+                age,
+                password: hashedPassword,
+                role: 'admin'
+            }
+        });
         const token = jwt.sign(
-            { _id: user._id, emailId, role: user.role },
+            { _id: user.id, emailId: user.emailId, role: 'admin' },
             process.env.JWT_KEY,
             { expiresIn: 60 * 60 }
         );
@@ -150,7 +172,9 @@ const adminRegister = async (req, res) => {
 // TODO: Decide whether account deletion should delete, anonymize, or retain user submissions.
 const deleteProfile = async (req, res) => {
     try {
-        await User.findByIdAndDelete(req.result._id);
+        await prisma.user.delete({
+            where: { id: req.result._id }
+        });
 
         res.status(200).json({
             success: true,

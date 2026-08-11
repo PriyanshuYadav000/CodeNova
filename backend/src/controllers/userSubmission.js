@@ -1,7 +1,5 @@
-const Problem = require("../models/problem");
-const Submission = require("../models/submission");
-const User = require("../models/user");
-const {executeJudge0} = require("../utils/problemUtility");
+const prisma = require('../config/prisma');
+const { executeJudge0 } = require('../utils/problemUtility');
 
 const judge0StatusToSubmissionStatus = {
   4: 'wrong_answer',
@@ -22,84 +20,101 @@ const getSubmissionStatus = (judge0StatusId) => (
   judge0StatusToSubmissionStatus[judge0StatusId] || 'internal_error'
 );
 
-const submitCode = async (req,res)=>{
-   
-    // 
-    try{
-      
-       const userId = req.result._id;
-       const problemId = req.params.id;
+const toJudge0TestCases = (testCases) => testCases.map((testCase) => ({
+  input: testCase.input,
+  output: testCase.output
+}));
 
-       let {code,language} = req.body;
+const submitCode = async (req, res) => {
+  try {
+    const userId = req.result.id;
+    const problemId = req.params.id;
+    let { code, language } = req.body;
 
-      if(!userId||!code||!problemId||!language)
-        return res.status(400).send("Some field missing");
-      
+    if (!userId || !code || !problemId || !language) {
+      return res.status(400).send('Some field missing');
+    }
 
-      if(language==='cpp')
-        language='c++'
-      
-      // console.log(language);
-      
-    //    Fetch the problem from database
-       const problem =  await Problem.findById(problemId);
-       if(!problem)
-        return res.status(404).send("Problem not found");
-    //    testcases(Hidden)
-    
-    //   Kya apne submission store kar du pehle....
-    const submittedResult = await Submission.create({
-          userId,
-          problemId,
-          code,
-          language,
-          status:'pending',
-          testCasesTotal:problem.hiddenTestCases.length
-     })
+    if (language === 'cpp') {
+      language = 'c++';
+    }
 
-    //    Judge0 code ko submit karna hai
-    
-    const testResult = await executeJudge0(code, language, problem.hiddenTestCases);
-    
+    const problem = await prisma.problem.findUnique({
+      where: { id: problemId },
+      include: {
+        testCases: {
+          where: {
+            visibility: 'hidden'
+          },
+          orderBy: {
+            position: 'asc'
+          }
+        }
+      }
+    });
 
-    // submittedResult ko update karo
+    if (!problem) {
+      return res.status(404).send('Problem not found');
+    }
+
+    const hiddenTestCases = toJudge0TestCases(problem.testCases);
+    const submittedResult = await prisma.submission.create({
+      data: {
+        userId,
+        problemId,
+        code,
+        language,
+        status: 'pending',
+        testCasesTotal: problem.testCases.length
+      }
+    });
+
+    const testResult = await executeJudge0(code, language, hiddenTestCases);
     let testCasesPassed = 0;
     let runtime = 0;
     let memory = 0;
     let status = 'accepted';
     let errorMessage = null;
 
-
-    for(const test of testResult){
-        if(test.status_id==3){
-           testCasesPassed++;
-           runtime = runtime+parseFloat(test.time)
-           memory = Math.max(memory,test.memory);
-        }else{
-          status = getSubmissionStatus(test.status_id);
-          errorMessage = test.stderr
-        }
+    for (const test of testResult) {
+      if (test.status_id === 3) {
+        testCasesPassed++;
+        runtime += parseFloat(test.time || 0);
+        memory = Math.max(memory, test.memory);
+      } else {
+        status = getSubmissionStatus(test.status_id);
+        errorMessage = test.stderr;
+      }
     }
 
+    await prisma.submission.update({
+      where: {
+        id: submittedResult.id
+      },
+      data: {
+        status,
+        testCasesPassed,
+        errorMessage,
+        runtime,
+        memory
+      }
+    });
 
-    // Store the result in Database in Submission
-    submittedResult.status   = status;
-    submittedResult.testCasesPassed = testCasesPassed;
-    submittedResult.errorMessage = errorMessage;
-    submittedResult.runtime = runtime;
-    submittedResult.memory = memory;
+    const accepted = status === 'accepted';
 
-    await submittedResult.save();
-    
-    // ProblemId ko insert karenge userSchema ke problemSolved mein if it is not persent there.
-    
-    // req.result == user Information
-
-    const accepted = (status == 'accepted')
-
-    if(accepted){
-      await User.findByIdAndUpdate(userId, {
-        $addToSet: { problemSolved: problemId }
+    if (accepted) {
+      await prisma.userSolvedProblem.upsert({
+        where: {
+          userId_problemId: {
+            userId,
+            problemId
+          }
+        },
+        update: {},
+        create: {
+          userId,
+          problemId
+        }
       });
     }
 
@@ -110,70 +125,71 @@ const submitCode = async (req,res)=>{
       runtime,
       memory
     });
-       
+  } catch (err) {
+    res.status(500).send('Internal Server Error');
+  }
+};
+
+const runCode = async (req, res) => {
+  try {
+    const userId = req.result.id;
+    const problemId = req.params.id;
+    let { code, language } = req.body;
+
+    if (!userId || !code || !problemId || !language) {
+      return res.status(400).send('Some field missing');
     }
-    catch(err){
-      res.status(500).send("Internal Server Error "+ err);
+
+    const problem = await prisma.problem.findUnique({
+      where: { id: problemId },
+      include: {
+        testCases: {
+          where: {
+            visibility: 'visible'
+          },
+          orderBy: {
+            position: 'asc'
+          }
+        }
+      }
+    });
+
+    if (!problem) {
+      return res.status(404).send('Problem not found');
     }
-}
 
+    if (language === 'cpp') {
+      language = 'c++';
+    }
 
-const runCode = async(req,res)=>{
-    
-     // 
-     try{
-      const userId = req.result._id;
-      const problemId = req.params.id;
-
-      let {code,language} = req.body;
-
-     if(!userId||!code||!problemId||!language)
-       return res.status(400).send("Some field missing");
-
-   //    Fetch the problem from database
-      const problem =  await Problem.findById(problemId);
-      if(!problem)
-        return res.status(404).send("Problem not found");
-   //    testcases(Hidden)
-      if(language==='cpp')
-        language='c++'
-
-   //    Judge0 code ko submit karna hai
-
-   const testResult = await executeJudge0(code, language, problem.visibleTestCases);
-
+    const visibleTestCases = toJudge0TestCases(problem.testCases);
+    const testResult = await executeJudge0(code, language, visibleTestCases);
     let testCasesPassed = 0;
     let runtime = 0;
     let memory = 0;
     let status = 'accepted';
     let errorMessage = null;
 
-    for(const test of testResult){
-        if(test.status_id==3){
-           testCasesPassed++;
-           runtime = runtime+parseFloat(test.time)
-           memory = Math.max(memory,test.memory);
-        }else{
-          status = getSubmissionStatus(test.status_id);
-          errorMessage = test.stderr
-        }
+    for (const test of testResult) {
+      if (test.status_id === 3) {
+        testCasesPassed++;
+        runtime += parseFloat(test.time || 0);
+        memory = Math.max(memory, test.memory);
+      } else {
+        status = getSubmissionStatus(test.status_id);
+        errorMessage = test.stderr;
+      }
     }
 
-   
-  
-   res.status(201).json({
-    success:status == 'accepted',
-    testCases: testResult,
-    runtime,
-    memory
-   });
-      
-   }
-   catch(err){
-     res.status(500).send("Internal Server Error "+ err);
-   }
-}
+    res.status(201).json({
+      success: status === 'accepted',
+      testCases: testResult,
+      runtime,
+      memory
+    });
+  } catch (err) {
+    res.status(500).send('Internal Server Error');
+  }
+};
 
-
-module.exports = {submitCode,runCode};
-
+module.exports = { submitCode, runCode };

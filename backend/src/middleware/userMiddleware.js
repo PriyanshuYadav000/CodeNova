@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/user");
+const prisma = require("../config/prisma");
 const redisClient = require("../config/redis")
 
 const userMiddleware = async (req,res,next)=>{
@@ -25,7 +25,9 @@ const userMiddleware = async (req,res,next)=>{
             throw new Error("Invalid token");
         }
 
-        const result = await User.findById(_id);
+        const result = await prisma.user.findUnique({
+            where: { id: _id }
+        });
 
         if(!result){
             throw new Error("User Doesn't Exist");
