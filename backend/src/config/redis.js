@@ -1,39 +1,51 @@
-const { createClient } = require("redis"); // ✅ use require instead of import
+const { createClient } = require("redis");
+
+const requiredRedisConfig = [
+  "REDIS_HOST",
+  "REDIS_PORT",
+  "REDIS_USER",
+  "REDIS_PASS",
+];
+
+const missingRedisConfig = requiredRedisConfig.filter(
+  (key) => !process.env[key]
+);
+
+if (missingRedisConfig.length > 0) {
+  throw new Error(
+    `Missing Redis configuration: ${missingRedisConfig.join(", ")}`
+  );
+}
 
 const redisClient = createClient({
-  username: "default",
+  username: process.env.REDIS_USER,
   password: process.env.REDIS_PASS,
-  socket:  {
-    host: 'redis-18083.c274.us-east-1-3.ec2.cloud.redislabs.com',
-    port: 18083
-}
+  socket: {
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
+    connectTimeout: 10000,
+    reconnectStrategy: (retries, cause) => {
+      if (/WRONGPASS|NOAUTH/i.test(cause.message)) {
+        return new Error(
+          "Redis authentication failed. Check REDIS_USER and REDIS_PASS."
+        );
+      }
+
+      return Math.min(50 * 2 ** retries, 3000);
+    },
+  },
 });
 
-// client.on('error', err => console.log('Redis Client Error', err));
+redisClient.on("error", (err) => {
+  console.error("Redis Client Error:", err);
+});
 
-// await client.connect();
+redisClient.on("connect", () => {
+  console.log("Redis connecting...");
+});
 
-// await client.set('foo', 'bar');
-// const result = await client.get('foo');
-// console.log(result)  // >>> bar
+redisClient.on("ready", () => {
+  console.log("Redis connected successfully ✅");
+});
 
 module.exports = redisClient;
-
-
-// const client = createClient({
-//     username: 'default',
-//     password: 'hxht0zqFbXburWHiSqEFWgIgPpKGjHlb',
-//     socket: {
-//         host: 'redis-16859.crce182.ap-south-1-1.ec2.cloud.redislabs.com',
-//         port: 16859
-//     }
-// });
-
-// client.on('error', err => console.log('Redis Client Error', err));
-
-// await client.connect();
-
-// await client.set('foo', 'bar');
-// const result = await client.get('foo');
-// console.log(result)  // >>> bar
-

@@ -1,51 +1,74 @@
-const express = require('express')
+const express = require("express");
+const dotenv = require("dotenv");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
+
+// Load environment variables FIRST
+dotenv.config();
+
 const app = express();
-require('dotenv').config();
-const main =  require('./config/db')
-const cookieParser =  require('cookie-parser');
+
+// Database
+const main = require("./config/db");
+
+// Redis
+const redisClient = require("./config/redis");
+
+// Routes
 const authRouter = require("./routes/userAuth");
-const redisClient = require('./config/redis');
 const problemRouter = require("./routes/problemCreator");
-const submitRouter = require("./routes/submit")
-const cors = require('cors')
+const submitRouter = require("./routes/submit");
 
-// console.log("Hello")
-
-app.use(cors({
+// Middleware
+app.use(
+  cors({
     origin: process.env.CLIENT_URL,
-    credentials: true 
-}))
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 app.use(cookieParser());
 
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'CodeNova API is healthy'
-    });
+// Health check
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "CodeNova API is healthy",
+  });
 });
 
-app.use('/user',authRouter);
-app.use('/problem',problemRouter);
-app.use('/submission',submitRouter);
+// Routes
+app.use("/user", authRouter);
+app.use("/problem", problemRouter);
+app.use("/submission", submitRouter);
 
+// Initialize database + Redis
+const initializeConnection = async () => {
+  try {
+    console.log("Connecting to PostgreSQL...");
+    await main();
+    console.log("PostgreSQL connected successfully ✅");
 
-const initializeConnection = async ()=>{
-    try{
+    console.log("Connecting to Redis...");
+    await redisClient.connect();
+    console.log("Redis connected successfully ✅");
 
-        await Promise.all([main(),redisClient.connect()]);
-        console.log("DB Connected");
-        
-        app.listen(process.env.PORT, ()=>{
-            console.log("Server listening at port number: "+ process.env.PORT);
-        })
+    app.listen(process.env.PORT, () => {
+      console.log(
+        `CodeNova server listening at port ${process.env.PORT} 🚀`
+      );
+    });
+  } catch (error) {
+    console.error("Startup error:", error);
 
+    // Close Redis connection if startup fails
+    if (redisClient.isOpen) {
+      await redisClient.quit().catch(() => {});
     }
-    catch(err){
-        console.log("Error: "+err);
-    }
-}
 
+    process.exit(1);
+  }
+};
 
 initializeConnection();
