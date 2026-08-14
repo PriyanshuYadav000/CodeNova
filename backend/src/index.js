@@ -18,6 +18,8 @@ const redisClient = require("./config/redis");
 const authRouter = require("./routes/userAuth");
 const problemRouter = require("./routes/problemCreator");
 const submitRouter = require("./routes/submit");
+const AppError = require("./utils/AppError");
+const errorMiddleware = require("./middleware/errorMiddleware");
 
 // Middleware
 app.use(
@@ -42,6 +44,12 @@ app.get("/health", (req, res) => {
 app.use("/user", authRouter);
 app.use("/problem", problemRouter);
 app.use("/submission", submitRouter);
+
+app.all("/{*path}", (req, res, next) => {
+  next(new AppError("Route not found.", 404, "NOT_FOUND"));
+});
+
+app.use(errorMiddleware);
 
 // Initialize database + Redis
 const initializeConnection = async () => {

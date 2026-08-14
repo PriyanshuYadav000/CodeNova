@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const prisma = require("../config/prisma");
 const redisClient = require("../config/redis")
+const AppError = require("../utils/AppError");
 
 const userMiddleware = async (req,res,next)=>{
 
@@ -8,21 +9,26 @@ const userMiddleware = async (req,res,next)=>{
         
         const {token} = req.cookies;
         if(!token)
-            throw new Error("Token is not persent");
+            throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
 
-        const payload = jwt.verify(token,process.env.JWT_KEY);
+        let payload;
+        try {
+            payload = jwt.verify(token,process.env.JWT_KEY);
+        } catch (error) {
+            throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
+        }
 
         // Redis ke blockList mein persent toh nahi hai
 
         const IsBlocked = await redisClient.exists(`token:${token}`);
 
         if(IsBlocked)
-            throw new Error("Invalid Token");
+            throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
 
         const {_id} = payload;
 
         if(!_id){
-            throw new Error("Invalid token");
+            throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
         }
 
         const result = await prisma.user.findUnique({
@@ -30,7 +36,7 @@ const userMiddleware = async (req,res,next)=>{
         });
 
         if(!result){
-            throw new Error("User Doesn't Exist");
+            throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
         }
 
         req.result = result;
@@ -39,11 +45,8 @@ const userMiddleware = async (req,res,next)=>{
         next();
     }
     catch(err){
-        res.status(401).json({
-            success: false,
-            message: 'Authentication required.',
-            error: null
-        });
+        if (err instanceof AppError) return next(err);
+        next(new AppError("Authentication service is unavailable.", 503, "EXTERNAL_SERVICE_ERROR"));
     }
 
 }

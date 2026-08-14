@@ -1,5 +1,6 @@
 const { validateReferenceSolutions } = require('../utils/judge0Validator');
 const prisma = require('../config/prisma');
+const AppError = require('../utils/AppError');
 
 const normalizeTagName = (tag) => {
   const normalizedTag = tag.trim().toLowerCase();
@@ -11,7 +12,7 @@ const normalizeTags = (tags) => {
   const values = Array.isArray(tags) ? tags : [tags];
 
   if (values.length === 0 || values.some((tag) => typeof tag !== 'string' || !tag.trim())) {
-    throw new Error('At least one valid tag is required');
+    throw new AppError('At least one valid tag is required.', 400, 'VALIDATION_ERROR');
   }
 
   return values;
@@ -133,7 +134,7 @@ const toProblemSummary = (problem) => ({
   tags: problem.problemTags.map((problemTag) => problemTag.tag.name)
 });
 
-const createProblem = async (req, res) => {
+const createProblem = async (req, res, next) => {
   const {
     title,
     description,
@@ -146,11 +147,6 @@ const createProblem = async (req, res) => {
   } = req.body;
 
   try {
-    if (!Array.isArray(visibleTestCases) || !Array.isArray(hiddenTestCases) ||
-        !Array.isArray(startCode) || !Array.isArray(referenceSolution)) {
-      return res.status(400).send('Invalid problem data');
-    }
-
     await validateReferenceSolutions(referenceSolution, visibleTestCases);
 
     await prisma.$transaction(async (tx) => {
@@ -176,11 +172,14 @@ const createProblem = async (req, res) => {
 
     res.status(201).send('Problem Saved Successfully');
   } catch (err) {
-    res.status(400).send('Error: ' + err);
+    if (err.name === 'ReferenceSolutionValidationError') {
+      return next(new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID'));
+    }
+    next(err);
   }
 };
 
-const updateProblem = async (req, res) => {
+const updateProblem = async (req, res, next) => {
   const { id } = req.params;
   const {
     title,
@@ -195,12 +194,7 @@ const updateProblem = async (req, res) => {
 
   try {
     if (!id) {
-      return res.status(400).send('Missing ID Field');
-    }
-
-    if (!Array.isArray(visibleTestCases) || !Array.isArray(hiddenTestCases) ||
-        !Array.isArray(startCode) || !Array.isArray(referenceSolution)) {
-      return res.status(400).send('Invalid problem data');
+      throw new AppError('Missing ID field.', 400, 'VALIDATION_ERROR');
     }
 
     const DsaProblem = await prisma.problem.findUnique({
@@ -208,7 +202,7 @@ const updateProblem = async (req, res) => {
     });
 
     if (!DsaProblem) {
-      return res.status(404).send('ID is not persent in server');
+      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
     }
 
     await validateReferenceSolutions(referenceSolution, visibleTestCases);
@@ -247,19 +241,19 @@ const updateProblem = async (req, res) => {
     res.status(200).send(toProblemDetails(newProblem));
   } catch (err) {
     if (err.name === 'ReferenceSolutionValidationError') {
-      return res.status(400).send('Error: ' + err);
+      return next(new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID'));
     }
 
-    res.status(500).send('Error: ' + err);
+    next(err);
   }
 };
 
-const deleteProblem = async (req, res) => {
+const deleteProblem = async (req, res, next) => {
   const { id } = req.params;
 
   try {
     if (!id) {
-      return res.status(400).send('ID is Missing');
+      throw new AppError('Missing ID field.', 400, 'VALIDATION_ERROR');
     }
 
     await prisma.problem.delete({
@@ -268,20 +262,16 @@ const deleteProblem = async (req, res) => {
 
     res.status(200).send('Successfully Deleted');
   } catch (err) {
-    if (err.code === 'P2025') {
-      return res.status(404).send('Problem is Missing');
-    }
-
-    res.status(500).send('Error: ' + err);
+    next(err);
   }
 };
 
-const getProblemById = async (req, res) => {
+const getProblemById = async (req, res, next) => {
   const { id } = req.params;
 
   try {
     if (!id) {
-      return res.status(400).send('ID is Missing');
+      throw new AppError('Missing ID field.', 400, 'VALIDATION_ERROR');
     }
 
     const getProblem = await prisma.problem.findUnique({
@@ -290,16 +280,16 @@ const getProblemById = async (req, res) => {
     });
 
     if (!getProblem) {
-      return res.status(404).send('Problem is Missing');
+      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
     }
 
     res.status(200).send(toProblemDetails(getProblem));
   } catch (err) {
-    res.status(500).send('Error: ' + err);
+    next(err);
   }
 };
 
-const getAllProblem = async (req, res) => {
+const getAllProblem = async (req, res, next) => {
   try {
     const getProblem = await prisma.problem.findMany({
       select: {
@@ -315,16 +305,16 @@ const getAllProblem = async (req, res) => {
     });
 
     if (getProblem.length === 0) {
-      return res.status(404).send('Problem is Missing');
+      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
     }
 
     res.status(200).send(getProblem.map(toProblemSummary));
   } catch (err) {
-    res.status(500).send('Error: ' + err);
+    next(err);
   }
 };
 
-const solvedAllProblembyUser = async (req, res) => {
+const solvedAllProblembyUser = async (req, res, next) => {
   try {
     const solvedProblems = await prisma.userSolvedProblem.findMany({
       where: {
@@ -345,11 +335,11 @@ const solvedAllProblembyUser = async (req, res) => {
 
     res.status(200).send(solvedProblems.map(({ problem }) => toProblemSummary(problem)));
   } catch (err) {
-    res.status(500).send('Server Error');
+    next(err);
   }
 };
 
-const submittedProblem = async (req, res) => {
+const submittedProblem = async (req, res, next) => {
   try {
     const userId = req.result.id;
     const problemId = req.params.pid;
@@ -366,7 +356,7 @@ const submittedProblem = async (req, res) => {
 
     res.status(200).send(ans);
   } catch (err) {
-    res.status(500).send('Internal Server Error');
+    next(err);
   }
 };
 

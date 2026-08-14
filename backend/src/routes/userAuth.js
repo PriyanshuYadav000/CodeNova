@@ -8,14 +8,16 @@ const {
 } = require('../controllers/userAuthent');
 const userMiddleware = require('../middleware/userMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
+const asyncHandler = require('../utils/asyncHandler');
+const { validateBody, validateRegistration, validateLogin } = require('../validators/requestValidation');
 
 const authRouter = express.Router();
 
-authRouter.post('/register', register);
-authRouter.post('/login', login);
-authRouter.post('/logout', userMiddleware, logout);
-authRouter.post('/admin/register', adminMiddleware, adminRegister);
-authRouter.delete('/deleteProfile', userMiddleware, deleteProfile);
+authRouter.post('/register', validateBody(validateRegistration), asyncHandler(register));
+authRouter.post('/login', validateBody(validateLogin), asyncHandler(login));
+authRouter.post('/logout', userMiddleware, asyncHandler(logout));
+authRouter.post('/admin/register', adminMiddleware, validateBody(validateRegistration), asyncHandler(adminRegister));
+authRouter.delete('/deleteProfile', userMiddleware, asyncHandler(deleteProfile));
 authRouter.get('/check', userMiddleware, (req, res) => {
   const reply = {
   firstName: req.result.firstName,

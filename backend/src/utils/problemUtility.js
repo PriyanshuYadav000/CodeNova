@@ -1,4 +1,5 @@
 const axios = require('axios');
+const AppError = require('./AppError');
 
 
 const getLanguageById = (lang)=>{
@@ -11,12 +12,12 @@ const getLanguageById = (lang)=>{
 
 
     if(typeof lang !== 'string')
-      throw new Error('Unsupported language provided to Judge0.');
+      throw new AppError('Unsupported language.', 400, 'VALIDATION_ERROR');
 
     const languageId = language[lang.toLowerCase()];
 
     if(!languageId)
-      throw new Error(`Unsupported language provided to Judge0: ${lang}`);
+      throw new AppError('Unsupported language.', 400, 'VALIDATION_ERROR');
 
     return languageId;
 }
@@ -46,7 +47,7 @@ async function fetchData() {
 		const response = await axios.request(options);
 		return response.data;
 	} catch (error) {
-		throw new Error(`Judge0 batch submission failed: ${error.message}`);
+		throw new AppError('Code execution service is unavailable.', 503, 'EXTERNAL_SERVICE_ERROR');
 	}
 }
 
@@ -80,7 +81,7 @@ async function fetchData() {
 		const response = await axios.request(options);
 		return response.data;
 	} catch (error) {
-		throw new Error(`Judge0 result polling failed: ${error.message}`);
+		throw new AppError('Code execution service is unavailable.', 503, 'EXTERNAL_SERVICE_ERROR');
 	}
 }
 
@@ -99,7 +100,7 @@ async function fetchData() {
     await waiting(1000);
  }
 
- throw new Error('Code execution timed out.');
+ throw new AppError('Code execution timed out.', 503, 'EXTERNAL_SERVICE_ERROR');
 
 
 
