@@ -173,7 +173,7 @@ const adminRegister = async (req, res) => {
 const deleteProfile = async (req, res) => {
     try {
         await prisma.user.delete({
-            where: { id: req.result._id }
+            where: { id: req.result.id }
         });
 
         res.status(200).json({

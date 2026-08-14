@@ -44,8 +44,4 @@ redisClient.on("connect", () => {
   console.log("Redis connecting...");
 });
 
-redisClient.on("ready", () => {
-  console.log("Redis connected successfully ✅");
-});
-
 module.exports = redisClient;

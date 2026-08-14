@@ -1,9 +1,8 @@
-const mongoose = require('mongoose');
+const prisma = require('./prisma');
 
 async function main() {
-    await mongoose.connect(process.env.DB_CONNECT_STRING)
+    await prisma.$connect();
 }
 
 module.exports = main;
-
 
