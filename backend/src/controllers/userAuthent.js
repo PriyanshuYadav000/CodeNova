@@ -7,17 +7,17 @@ const AppError = require('../utils/AppError');
 const tokenCookieOptions = {
     maxAge: 60 * 60 * 1000,
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
+    sameSite: process.env.COOKIE_SAME_SITE || "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
 };
 
 const clearTokenCookieOptions = {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    expires: new Date(Date.now())
+    sameSite: process.env.COOKIE_SAME_SITE || "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
 };
-
 const userResponse = (user) => ({
     firstName: user.firstName,
     emailId: user.emailId,
@@ -109,7 +109,7 @@ const logout = async (req, res, next) => {
         await redisClient.set(`token:${token}`, 'Blocked');
         await redisClient.expireAt(`token:${token}`, payload.exp);
 
-        res.cookie('token', null, clearTokenCookieOptions);
+        res.clearCookie("token", clearTokenCookieOptions);
         res.status(200).json({
             success: true,
             message: 'Logged out successfully',
