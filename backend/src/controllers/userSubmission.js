@@ -87,36 +87,38 @@ const submitCode = async (req, res) => {
       }
     }
 
-    await prisma.submission.update({
-      where: {
-        id: submittedResult.id
-      },
-      data: {
-        status,
-        testCasesPassed,
-        errorMessage,
-        runtime,
-        memory
-      }
-    });
-
     const accepted = status === 'accepted';
 
-    if (accepted) {
-      await prisma.userSolvedProblem.upsert({
+    await prisma.$transaction(async (tx) => {
+      await tx.submission.update({
         where: {
-          userId_problemId: {
+          id: submittedResult.id
+        },
+        data: {
+          status,
+          testCasesPassed,
+          errorMessage,
+          runtime,
+          memory
+        }
+      });
+
+      if (accepted) {
+        await tx.userSolvedProblem.upsert({
+          where: {
+            userId_problemId: {
+              userId,
+              problemId
+            }
+          },
+          update: {},
+          create: {
             userId,
             problemId
           }
-        },
-        update: {},
-        create: {
-          userId,
-          problemId
-        }
-      });
-    }
+        });
+      }
+    });
 
     res.status(201).json({
       accepted,

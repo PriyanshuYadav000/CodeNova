@@ -7,8 +7,18 @@ const normalizeTagName = (tag) => {
   return normalizedTag === 'linkedlist' ? 'linkedList' : normalizedTag;
 };
 
+const normalizeTags = (tags) => {
+  const values = Array.isArray(tags) ? tags : [tags];
+
+  if (values.length === 0 || values.some((tag) => typeof tag !== 'string' || !tag.trim())) {
+    throw new Error('At least one valid tag is required');
+  }
+
+  return values;
+};
+
 const createProblemRelations = async (tx, problemId, tags, visibleTestCases, hiddenTestCases, startCode, referenceSolution) => {
-  const tagNames = [...new Set(tags.map(normalizeTagName))];
+  const tagNames = [...new Set(normalizeTags(tags).map(normalizeTagName))];
   const tagRecords = await Promise.all(
     tagNames.map((name) => tx.tag.upsert({
       where: { name },
@@ -136,6 +146,11 @@ const createProblem = async (req, res) => {
   } = req.body;
 
   try {
+    if (!Array.isArray(visibleTestCases) || !Array.isArray(hiddenTestCases) ||
+        !Array.isArray(startCode) || !Array.isArray(referenceSolution)) {
+      return res.status(400).send('Invalid problem data');
+    }
+
     await validateReferenceSolutions(referenceSolution, visibleTestCases);
 
     await prisma.$transaction(async (tx) => {
@@ -181,6 +196,11 @@ const updateProblem = async (req, res) => {
   try {
     if (!id) {
       return res.status(400).send('Missing ID Field');
+    }
+
+    if (!Array.isArray(visibleTestCases) || !Array.isArray(hiddenTestCases) ||
+        !Array.isArray(startCode) || !Array.isArray(referenceSolution)) {
+      return res.status(400).send('Invalid problem data');
     }
 
     const DsaProblem = await prisma.problem.findUnique({
