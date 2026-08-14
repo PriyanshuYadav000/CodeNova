@@ -1,8 +1,8 @@
 const redisClient = require("../config/redis");
 const prisma = require('../config/prisma');
-const validate = require('../utils/validator');
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
+const AppError = require('../utils/AppError');
 
 const tokenCookieOptions = {
     maxAge: 60 * 60 * 1000,
@@ -25,24 +25,8 @@ const userResponse = (user) => ({
     role: user.role
 });
 
-const sendError = (res, status, message) => {
-    res.status(status).json({
-        success: false,
-        message,
-        error: null
-    });
-};
-
-const registrationErrorStatus = (err) => (err && err.code === 'P2002' ? 409 : 400);
-const registrationErrorMessage = (err) => (
-    err && err.code === 'P2002'
-        ? 'An account with this email already exists.'
-        : 'Please provide valid registration details.'
-);
-
-const register = async (req, res) => {
+const register = async (req, res, next) => {
     try {
-        validate(req.body);
         const { firstName, lastName, emailId, age, password } = req.body;
         const normalizedEmailId = emailId.trim().toLowerCase();
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -69,16 +53,16 @@ const register = async (req, res) => {
             data: userResponse(user)
         });
     } catch (err) {
-        sendError(res, registrationErrorStatus(err), registrationErrorMessage(err));
+        next(err);
     }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
     try {
         const { emailId, password } = req.body;
 
         if (!emailId || !password) {
-            return sendError(res, 400, 'Email and password are required.');
+            throw new AppError('Email and password are required.', 400, 'VALIDATION_ERROR');
         }
 
         const user = await prisma.user.findUnique({
@@ -86,13 +70,13 @@ const login = async (req, res) => {
         });
 
         if (!user) {
-            return sendError(res, 401, 'Invalid email or password.');
+            throw new AppError('Invalid email or password.', 401, 'AUTHENTICATION_ERROR');
         }
 
         const match = await bcrypt.compare(password, user.password);
 
         if (!match) {
-            return sendError(res, 401, 'Invalid email or password.');
+            throw new AppError('Invalid email or password.', 401, 'AUTHENTICATION_ERROR');
         }
 
         const token = jwt.sign(
@@ -108,16 +92,16 @@ const login = async (req, res) => {
             data: userResponse(user)
         });
     } catch (err) {
-        sendError(res, 500, 'Unable to log in at this time. Please try again later.');
+        next(err);
     }
 };
 
-const logout = async (req, res) => {
+const logout = async (req, res, next) => {
     try {
         const { token } = req.cookies;
 
         if (!token) {
-            return sendError(res, 401, 'Not authenticated.');
+            throw new AppError('Not authenticated.', 401, 'AUTHENTICATION_ERROR');
         }
 
         const payload = jwt.decode(token);
@@ -132,13 +116,13 @@ const logout = async (req, res) => {
             data: null
         });
     } catch (err) {
-        sendError(res, 503, 'Unable to log out at this time. Please try again later.');
+        if (err instanceof AppError) return next(err);
+        next(new AppError('Unable to log out at this time. Please try again later.', 503, 'EXTERNAL_SERVICE_ERROR'));
     }
 };
 
-const adminRegister = async (req, res) => {
+const adminRegister = async (req, res, next) => {
     try {
-        validate(req.body);
         const { firstName, lastName, emailId, age, password } = req.body;
         const normalizedEmailId = emailId.trim().toLowerCase();
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -165,12 +149,12 @@ const adminRegister = async (req, res) => {
             data: userResponse(user)
         });
     } catch (err) {
-        sendError(res, registrationErrorStatus(err), registrationErrorMessage(err));
+        next(err);
     }
 };
 
 // TODO: Decide whether account deletion should delete, anonymize, or retain user submissions.
-const deleteProfile = async (req, res) => {
+const deleteProfile = async (req, res, next) => {
     try {
         await prisma.user.delete({
             where: { id: req.result.id }
@@ -182,7 +166,7 @@ const deleteProfile = async (req, res) => {
             data: null
         });
     } catch (err) {
-        sendError(res, 500, 'Unable to delete the profile at this time. Please try again later.');
+        next(err);
     }
 };
 

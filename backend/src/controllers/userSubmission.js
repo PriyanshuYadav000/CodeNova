@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { executeJudge0 } = require('../utils/problemUtility');
+const AppError = require('../utils/AppError');
 
 const judge0StatusToSubmissionStatus = {
   4: 'wrong_answer',
@@ -25,14 +26,14 @@ const toJudge0TestCases = (testCases) => testCases.map((testCase) => ({
   output: testCase.output
 }));
 
-const submitCode = async (req, res) => {
+const submitCode = async (req, res, next) => {
   try {
     const userId = req.result.id;
     const problemId = req.params.id;
     let { code, language } = req.body;
 
     if (!userId || !code || !problemId || !language) {
-      return res.status(400).send('Some field missing');
+      throw new AppError('Some required fields are missing.', 400, 'VALIDATION_ERROR');
     }
 
     if (language === 'cpp') {
@@ -54,7 +55,7 @@ const submitCode = async (req, res) => {
     });
 
     if (!problem) {
-      return res.status(404).send('Problem not found');
+      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
     }
 
     const hiddenTestCases = toJudge0TestCases(problem.testCases);
@@ -128,18 +129,18 @@ const submitCode = async (req, res) => {
       memory
     });
   } catch (err) {
-    res.status(500).send('Internal Server Error');
+    next(err);
   }
 };
 
-const runCode = async (req, res) => {
+const runCode = async (req, res, next) => {
   try {
     const userId = req.result.id;
     const problemId = req.params.id;
     let { code, language } = req.body;
 
     if (!userId || !code || !problemId || !language) {
-      return res.status(400).send('Some field missing');
+      throw new AppError('Some required fields are missing.', 400, 'VALIDATION_ERROR');
     }
 
     const problem = await prisma.problem.findUnique({
@@ -157,7 +158,7 @@ const runCode = async (req, res) => {
     });
 
     if (!problem) {
-      return res.status(404).send('Problem not found');
+      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
     }
 
     if (language === 'cpp') {
@@ -190,7 +191,7 @@ const runCode = async (req, res) => {
       memory
     });
   } catch (err) {
-    res.status(500).send('Internal Server Error');
+    next(err);
   }
 };
 
