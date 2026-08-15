@@ -1,6 +1,25 @@
 const { validateReferenceSolutions } = require('../utils/judge0Validator');
 const prisma = require('../config/prisma');
 const AppError = require('../utils/AppError');
+const normalizeProblemTitle = require('../utils/normalizeProblemTitle');
+
+const duplicateProblemError = () => new AppError(
+  'A problem with this title already exists.',
+  409,
+  'DUPLICATE_PROBLEM'
+);
+
+const isNormalizedTitleUniqueViolation = (error) => {
+  if (error?.code !== 'P2002') {
+    return false;
+  }
+  const constraint =
+    error.meta?.driverAdapterError?.cause?.constraint;
+  if (constraint === 'problems_normalized_title_key') {
+    return true;
+  }
+  return error.message?.includes('normalized_title');
+};
 
 const normalizeTagName = (tag) => {
   const normalizedTag = tag.trim().toLowerCase();
@@ -145,6 +164,7 @@ const createProblem = async (req, res, next) => {
     startCode,
     referenceSolution
   } = req.body;
+  const normalizedTitle = normalizeProblemTitle(title);
 
   try {
     await validateReferenceSolutions(referenceSolution, visibleTestCases);
@@ -153,6 +173,7 @@ const createProblem = async (req, res, next) => {
       const problem = await tx.problem.create({
         data: {
           title,
+          normalizedTitle,
           description,
           difficulty,
           problemCreatorId: req.result.id
@@ -172,10 +193,17 @@ const createProblem = async (req, res, next) => {
 
     res.status(201).send('Problem Saved Successfully');
   } catch (err) {
-    if (err.name === 'ReferenceSolutionValidationError') {
-      return next(new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID'));
-    }
-    next(err);
+  if (isNormalizedTitleUniqueViolation(err)) {
+    return next(duplicateProblemError());
+  }
+
+  if (err.name === 'ReferenceSolutionValidationError') {
+    return next(
+      new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID')
+    );
+  }
+
+  next(err);
   }
 };
 
@@ -191,6 +219,7 @@ const updateProblem = async (req, res, next) => {
     startCode,
     referenceSolution
   } = req.body;
+  const normalizedTitle = normalizeProblemTitle(title);
 
   try {
     if (!id) {
@@ -212,6 +241,7 @@ const updateProblem = async (req, res, next) => {
         where: { id },
         data: {
           title,
+          normalizedTitle,
           description,
           difficulty
         }
@@ -240,6 +270,10 @@ const updateProblem = async (req, res, next) => {
 
     res.status(200).send(toProblemDetails(newProblem));
   } catch (err) {
+    if (isNormalizedTitleUniqueViolation(err)) {
+      return next(duplicateProblemError());
+    }
+
     if (err.name === 'ReferenceSolutionValidationError') {
       return next(new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID'));
     }
