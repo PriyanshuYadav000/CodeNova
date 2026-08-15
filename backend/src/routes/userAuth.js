@@ -1,3 +1,4 @@
+const { loginRateLimiter ,registerRateLimiter,adminRegisterRateLimiter} = require("../middleware/rateLimiter");
 const express = require('express');
 const {
   register,
@@ -13,10 +14,10 @@ const { validateBody, validateRegistration, validateLogin } = require('../valida
 
 const authRouter = express.Router();
 
-authRouter.post('/register', validateBody(validateRegistration), asyncHandler(register));
-authRouter.post('/login', validateBody(validateLogin), asyncHandler(login));
+authRouter.post('/register', registerRateLimiter,validateBody(validateRegistration), asyncHandler(register));
+authRouter.post('/login', loginRateLimiter, validateBody(validateLogin), asyncHandler(login));
 authRouter.post('/logout', userMiddleware, asyncHandler(logout));
-authRouter.post('/admin/register', adminMiddleware, validateBody(validateRegistration), asyncHandler(adminRegister));
+authRouter.post('/admin/register',adminMiddleware,adminRegisterRateLimiter,validateBody(validateRegistration), asyncHandler(adminRegister));
 authRouter.delete('/deleteProfile', userMiddleware, asyncHandler(deleteProfile));
 authRouter.get('/check', userMiddleware, (req, res) => {
   const reply = {

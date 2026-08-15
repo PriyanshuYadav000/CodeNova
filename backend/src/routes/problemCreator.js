@@ -1,3 +1,4 @@
+const { generalRateLimiter, adminWriteRateLimiter } = require("../middleware/rateLimiter"); // ← NEW
 const express = require('express');
 const {
   createProblem,
@@ -15,13 +16,13 @@ const { validateBody, validateProblem } = require('../validators/requestValidati
 
 const problemRouter = express.Router();
 
-problemRouter.post('/create', adminMiddleware, validateBody(validateProblem), asyncHandler(createProblem));
-problemRouter.put('/update/:id', adminMiddleware, validateBody(validateProblem), asyncHandler(updateProblem));
-problemRouter.delete('/delete/:id', adminMiddleware, asyncHandler(deleteProblem));
+problemRouter.post('/create', adminMiddleware,adminWriteRateLimiter, validateBody(validateProblem), asyncHandler(createProblem));
+problemRouter.put('/update/:id', adminMiddleware,adminWriteRateLimiter, validateBody(validateProblem), asyncHandler(updateProblem));
+problemRouter.delete('/delete/:id', adminMiddleware,adminWriteRateLimiter, asyncHandler(deleteProblem));
 
-problemRouter.get('/problemById/:id', userMiddleware, asyncHandler(getProblemById));
-problemRouter.get('/getAllProblem', userMiddleware, asyncHandler(getAllProblem));
-problemRouter.get('/problemSolvedByUser', userMiddleware, asyncHandler(solvedAllProblembyUser));
-problemRouter.get('/submittedProblem/:pid', userMiddleware, asyncHandler(submittedProblem));
+problemRouter.get('/problemById/:id',userMiddleware,generalRateLimiter, asyncHandler(getProblemById));
+problemRouter.get('/getAllProblem', userMiddleware, generalRateLimiter, asyncHandler(getAllProblem));
+problemRouter.get('/problemSolvedByUser', userMiddleware,generalRateLimiter, asyncHandler(solvedAllProblembyUser));
+problemRouter.get('/submittedProblem/:pid', userMiddleware,generalRateLimiter, asyncHandler(submittedProblem));
 
 module.exports = problemRouter;
