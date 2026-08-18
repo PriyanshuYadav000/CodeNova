@@ -568,30 +568,29 @@ const solvedAllProblembyUser = async (
   }
 };
 
-const submittedProblem = async (
-  req,
-  res,
-  next
-) => {
+const submittedProblem = async (req, res, next) => {
   try {
     const userId = req.result.id;
     const problemId = req.params.pid;
 
-    const ans =
-      await prisma.submission.findMany({
-        where: {
-          userId,
-          problemId,
-        },
-      });
+    const submissions = await prisma.submission.findMany({
+      where: {
+        userId,
+        problemId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 20,
+    });
 
-    if (ans.length === 0) {
+    if (submissions.length === 0) {
       return res
         .status(200)
         .send("No Submission is persent");
     }
 
-    res.status(200).send(ans);
+    res.status(200).send(submissions);
   } catch (err) {
     next(err);
   }
