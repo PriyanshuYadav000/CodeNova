@@ -1,79 +1,122 @@
-const { validateReferenceSolutions } = require('../utils/judge0Validator');
-const prisma = require('../config/prisma');
-const AppError = require('../utils/AppError');
-const normalizeProblemTitle = require('../utils/normalizeProblemTitle');
+const { validateReferenceSolutions } = require("../utils/judge0Validator");
+const prisma = require("../config/prisma");
+const AppError = require("../utils/AppError");
+const normalizeProblemTitle = require("../utils/normalizeProblemTitle");
+const {
+  getCache,
+  setCache,
+  deleteCaches,
+} = require("../utils/cache");
 
-const duplicateProblemError = () => new AppError(
-  'A problem with this title already exists.',
-  409,
-  'DUPLICATE_PROBLEM'
-);
+const duplicateProblemError = () =>
+  new AppError(
+    "A problem with this title already exists.",
+    409,
+    "DUPLICATE_PROBLEM"
+  );
 
 const isNormalizedTitleUniqueViolation = (error) => {
-  if (error?.code !== 'P2002') {
+  if (error?.code !== "P2002") {
     return false;
   }
+
   const constraint =
     error.meta?.driverAdapterError?.cause?.constraint;
-  if (constraint === 'problems_normalized_title_key') {
+
+  if (constraint === "problems_normalized_title_key") {
     return true;
   }
-  return error.message?.includes('normalized_title');
+
+  return error.message?.includes("normalized_title");
 };
 
 const normalizeTagName = (tag) => {
   const normalizedTag = tag.trim().toLowerCase();
 
-  return normalizedTag === 'linkedlist' ? 'linkedList' : normalizedTag;
+  return normalizedTag === "linkedlist"
+    ? "linkedList"
+    : normalizedTag;
 };
 
 const normalizeTags = (tags) => {
   const values = Array.isArray(tags) ? tags : [tags];
 
-  if (values.length === 0 || values.some((tag) => typeof tag !== 'string' || !tag.trim())) {
-    throw new AppError('At least one valid tag is required.', 400, 'VALIDATION_ERROR');
+  if (
+    values.length === 0 ||
+    values.some(
+      (tag) =>
+        typeof tag !== "string" ||
+        !tag.trim()
+    )
+  ) {
+    throw new AppError(
+      "At least one valid tag is required.",
+      400,
+      "VALIDATION_ERROR"
+    );
   }
 
   return values;
 };
 
-const createProblemRelations = async (tx, problemId, tags, visibleTestCases, hiddenTestCases, startCode, referenceSolution) => {
-  const tagNames = [...new Set(normalizeTags(tags).map(normalizeTagName))];
+const createProblemRelations = async (
+  tx,
+  problemId,
+  tags,
+  visibleTestCases,
+  hiddenTestCases,
+  startCode,
+  referenceSolution
+) => {
+  const tagNames = [
+    ...new Set(
+      normalizeTags(tags).map(normalizeTagName)
+    ),
+  ];
+
   const tagRecords = await Promise.all(
-    tagNames.map((name) => tx.tag.upsert({
-      where: { name },
-      update: {},
-      create: { name }
-    }))
+    tagNames.map((name) =>
+      tx.tag.upsert({
+        where: { name },
+        update: {},
+        create: { name },
+      })
+    )
   );
 
   if (tagRecords.length) {
     await tx.problemTag.createMany({
-      data: tagRecords.map((tag) => ({ problemId, tagId: tag.id }))
+      data: tagRecords.map((tag) => ({
+        problemId,
+        tagId: tag.id,
+      })),
     });
   }
 
   const testCases = [
     ...visibleTestCases.map((testCase, position) => ({
       problemId,
-      visibility: 'visible',
+      visibility: "visible",
       position,
       input: testCase.input,
       output: testCase.output,
-      explanation: testCase.explanation ?? null
+      explanation: testCase.explanation ?? null,
     })),
+
     ...hiddenTestCases.map((testCase, position) => ({
       problemId,
-      visibility: 'hidden',
+      visibility: "hidden",
       position,
       input: testCase.input,
       output: testCase.output,
-      explanation: testCase.explanation ?? null
-    }))
+      explanation: testCase.explanation ?? null,
+    })),
   ];
 
   if (testCases.length) {
-    await tx.problemTestCase.createMany({ data: testCases });
+    await tx.problemTestCase.createMany({
+      data: testCases,
+    });
   }
 
   if (startCode.length) {
@@ -82,8 +125,8 @@ const createProblemRelations = async (tx, problemId, tags, visibleTestCases, hid
         problemId,
         position,
         language: code.language,
-        initialCode: code.initialCode
-      }))
+        initialCode: code.initialCode,
+      })),
     });
   }
 
@@ -93,8 +136,8 @@ const createProblemRelations = async (tx, problemId, tags, visibleTestCases, hid
         problemId,
         position,
         language: solution.language,
-        completeCode: solution.completeCode
-      }))
+        completeCode: solution.completeCode,
+      })),
     });
   }
 };
@@ -102,27 +145,27 @@ const createProblemRelations = async (tx, problemId, tags, visibleTestCases, hid
 const problemDetailsInclude = {
   problemTags: {
     include: {
-      tag: true
-    }
+      tag: true,
+    },
   },
   testCases: {
     where: {
-      visibility: 'visible'
+      visibility: "visible",
     },
     orderBy: {
-      position: 'asc'
-    }
+      position: "asc",
+    },
   },
   starterCode: {
     orderBy: {
-      position: 'asc'
-    }
+      position: "asc",
+    },
   },
   referenceSolutions: {
     orderBy: {
-      position: 'asc'
-    }
-  }
+      position: "asc",
+    },
+  },
 };
 
 const toProblemDetails = (problem) => ({
@@ -130,27 +173,42 @@ const toProblemDetails = (problem) => ({
   title: problem.title,
   description: problem.description,
   difficulty: problem.difficulty,
-  tags: problem.problemTags.map((problemTag) => problemTag.tag.name),
-  visibleTestCases: problem.testCases.map((testCase) => ({
-    input: testCase.input,
-    output: testCase.output,
-    explanation: testCase.explanation
-  })),
-  startCode: problem.starterCode.map((code) => ({
-    language: code.language,
-    initialCode: code.initialCode
-  })),
-  referenceSolution: problem.referenceSolutions.map((solution) => ({
-    language: solution.language,
-    completeCode: solution.completeCode
-  }))
+
+  tags: problem.problemTags.map(
+    (problemTag) => problemTag.tag.name
+  ),
+
+  visibleTestCases: problem.testCases.map(
+    (testCase) => ({
+      input: testCase.input,
+      output: testCase.output,
+      explanation: testCase.explanation,
+    })
+  ),
+
+  startCode: problem.starterCode.map(
+    (code) => ({
+      language: code.language,
+      initialCode: code.initialCode,
+    })
+  ),
+
+  referenceSolution:
+    problem.referenceSolutions.map(
+      (solution) => ({
+        language: solution.language,
+        completeCode: solution.completeCode,
+      })
+    ),
 });
 
 const toProblemSummary = (problem) => ({
   _id: problem.id,
   title: problem.title,
   difficulty: problem.difficulty,
-  tags: problem.problemTags.map((problemTag) => problemTag.tag.name)
+  tags: problem.problemTags.map(
+    (problemTag) => problemTag.tag.name
+  ),
 });
 
 const createProblem = async (req, res, next) => {
@@ -162,12 +220,17 @@ const createProblem = async (req, res, next) => {
     visibleTestCases,
     hiddenTestCases,
     startCode,
-    referenceSolution
+    referenceSolution,
   } = req.body;
-  const normalizedTitle = normalizeProblemTitle(title);
+
+  const normalizedTitle =
+    normalizeProblemTitle(title);
 
   try {
-    await validateReferenceSolutions(referenceSolution, visibleTestCases);
+    await validateReferenceSolutions(
+      referenceSolution,
+      visibleTestCases
+    );
 
     await prisma.$transaction(async (tx) => {
       const problem = await tx.problem.create({
@@ -176,8 +239,8 @@ const createProblem = async (req, res, next) => {
           normalizedTitle,
           description,
           difficulty,
-          problemCreatorId: req.result.id
-        }
+          problemCreatorId: req.result.id,
+        },
       });
 
       await createProblemRelations(
@@ -191,24 +254,37 @@ const createProblem = async (req, res, next) => {
       );
     });
 
-    res.status(201).send('Problem Saved Successfully');
+    // DB mutation succeeded → invalidate shared problem list cache
+    await deleteCaches(["problems:all"]);
+
+    res
+      .status(201)
+      .send("Problem Saved Successfully");
   } catch (err) {
-  if (isNormalizedTitleUniqueViolation(err)) {
-    return next(duplicateProblemError());
-  }
+    if (isNormalizedTitleUniqueViolation(err)) {
+      return next(duplicateProblemError());
+    }
 
-  if (err.name === 'ReferenceSolutionValidationError') {
-    return next(
-      new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID')
-    );
-  }
+    if (
+      err.name ===
+      "ReferenceSolutionValidationError"
+    ) {
+      return next(
+        new AppError(
+          err.message,
+          400,
+          "REFERENCE_SOLUTION_INVALID"
+        )
+      );
+    }
 
-  next(err);
+    next(err);
   }
 };
 
 const updateProblem = async (req, res, next) => {
   const { id } = req.params;
+
   const {
     title,
     description,
@@ -217,65 +293,108 @@ const updateProblem = async (req, res, next) => {
     visibleTestCases,
     hiddenTestCases,
     startCode,
-    referenceSolution
+    referenceSolution,
   } = req.body;
-  const normalizedTitle = normalizeProblemTitle(title);
+
+  const normalizedTitle =
+    normalizeProblemTitle(title);
 
   try {
     if (!id) {
-      throw new AppError('Missing ID field.', 400, 'VALIDATION_ERROR');
+      throw new AppError(
+        "Missing ID field.",
+        400,
+        "VALIDATION_ERROR"
+      );
     }
 
-    const DsaProblem = await prisma.problem.findUnique({
-      where: { id }
-    });
+    const DsaProblem =
+      await prisma.problem.findUnique({
+        where: { id },
+      });
 
     if (!DsaProblem) {
-      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
+      throw new AppError(
+        "Problem not found.",
+        404,
+        "NOT_FOUND"
+      );
     }
 
-    await validateReferenceSolutions(referenceSolution, visibleTestCases);
+    await validateReferenceSolutions(
+      referenceSolution,
+      visibleTestCases
+    );
 
-    const newProblem = await prisma.$transaction(async (tx) => {
-      await tx.problem.update({
-        where: { id },
-        data: {
-          title,
-          normalizedTitle,
-          description,
-          difficulty
-        }
+    const newProblem =
+      await prisma.$transaction(async (tx) => {
+        await tx.problem.update({
+          where: { id },
+          data: {
+            title,
+            normalizedTitle,
+            description,
+            difficulty,
+          },
+        });
+
+        await tx.problemTag.deleteMany({
+          where: { problemId: id },
+        });
+
+        await tx.problemTestCase.deleteMany({
+          where: { problemId: id },
+        });
+
+        await tx.problemStarterCode.deleteMany({
+          where: { problemId: id },
+        });
+
+        await tx.problemReferenceSolution.deleteMany({
+          where: { problemId: id },
+        });
+
+        await createProblemRelations(
+          tx,
+          id,
+          tags,
+          visibleTestCases,
+          hiddenTestCases,
+          startCode,
+          referenceSolution
+        );
+
+        return tx.problem.findUnique({
+          where: { id },
+          include: problemDetailsInclude,
+        });
       });
 
-      await tx.problemTag.deleteMany({ where: { problemId: id } });
-      await tx.problemTestCase.deleteMany({ where: { problemId: id } });
-      await tx.problemStarterCode.deleteMany({ where: { problemId: id } });
-      await tx.problemReferenceSolution.deleteMany({ where: { problemId: id } });
+    // DB mutation succeeded → invalidate both affected caches
+    await deleteCaches([
+      "problems:all",
+      `problems:id:${id}`,
+    ]);
 
-      await createProblemRelations(
-        tx,
-        id,
-        tags,
-        visibleTestCases,
-        hiddenTestCases,
-        startCode,
-        referenceSolution
-      );
-
-      return tx.problem.findUnique({
-        where: { id },
-        include: problemDetailsInclude
-      });
-    });
-
-    res.status(200).send(toProblemDetails(newProblem));
+    res
+      .status(200)
+      .send(toProblemDetails(newProblem));
   } catch (err) {
     if (isNormalizedTitleUniqueViolation(err)) {
       return next(duplicateProblemError());
     }
 
-    if (err.name === 'ReferenceSolutionValidationError') {
-      return next(new AppError(err.message, 400, 'REFERENCE_SOLUTION_INVALID'));
+    if (
+      err.name ===
+      "ReferenceSolutionValidationError"
+    ) {
+      return next(
+        new AppError(
+          err.message,
+          400,
+          "REFERENCE_SOLUTION_INVALID"
+        )
+      );
     }
 
     next(err);
@@ -287,14 +406,26 @@ const deleteProblem = async (req, res, next) => {
 
   try {
     if (!id) {
-      throw new AppError('Missing ID field.', 400, 'VALIDATION_ERROR');
+      throw new AppError(
+        "Missing ID field.",
+        400,
+        "VALIDATION_ERROR"
+      );
     }
 
     await prisma.problem.delete({
-      where: { id }
+      where: { id },
     });
 
-    res.status(200).send('Successfully Deleted');
+    // DB mutation succeeded → invalidate both affected caches
+    await deleteCaches([
+      "problems:all",
+      `problems:id:${id}`,
+    ]);
+
+    res
+      .status(200)
+      .send("Successfully Deleted");
   } catch (err) {
     next(err);
   }
@@ -305,19 +436,47 @@ const getProblemById = async (req, res, next) => {
 
   try {
     if (!id) {
-      throw new AppError('Missing ID field.', 400, 'VALIDATION_ERROR');
+      throw new AppError(
+        "Missing ID field.",
+        400,
+        "VALIDATION_ERROR"
+      );
     }
 
-    const getProblem = await prisma.problem.findUnique({
-      where: { id },
-      include: problemDetailsInclude
-    });
+    const cacheKey = `problems:id:${id}`;
 
-    if (!getProblem) {
-      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
+    const cachedProblem =
+      await getCache(cacheKey);
+
+    if (cachedProblem) {
+      return res
+        .status(200)
+        .send(cachedProblem);
     }
 
-    res.status(200).send(toProblemDetails(getProblem));
+    const problem =
+      await prisma.problem.findUnique({
+        where: { id },
+        include: problemDetailsInclude,
+      });
+
+    if (!problem) {
+      throw new AppError(
+        "Problem not found.",
+        404,
+        "NOT_FOUND"
+      );
+    }
+
+    const response =
+      toProblemDetails(problem);
+
+    await setCache(
+      cacheKey,
+      response
+    );
+
+    res.status(200).send(response);
   } catch (err) {
     next(err);
   }
@@ -325,67 +484,111 @@ const getProblemById = async (req, res, next) => {
 
 const getAllProblem = async (req, res, next) => {
   try {
-    const getProblem = await prisma.problem.findMany({
-      select: {
-        id: true,
-        title: true,
-        difficulty: true,
-        problemTags: {
-          include: {
-            tag: true
-          }
-        }
-      }
-    });
+    const cacheKey = "problems:all";
 
-    if (getProblem.length === 0) {
-      throw new AppError('Problem not found.', 404, 'NOT_FOUND');
+    const cachedProblems =
+      await getCache(cacheKey);
+
+    if (cachedProblems) {
+      return res
+        .status(200)
+        .send(cachedProblems);
     }
 
-    res.status(200).send(getProblem.map(toProblemSummary));
+    const getProblem =
+      await prisma.problem.findMany({
+        select: {
+          id: true,
+          title: true,
+          difficulty: true,
+          problemTags: {
+            include: {
+              tag: true,
+            },
+          },
+        },
+      });
+
+    if (getProblem.length === 0) {
+      throw new AppError(
+        "Problem not found.",
+        404,
+        "NOT_FOUND"
+      );
+    }
+
+    const response =
+      getProblem.map(toProblemSummary);
+
+    await setCache(
+      cacheKey,
+      response
+    );
+
+    res.status(200).send(response);
   } catch (err) {
     next(err);
   }
 };
 
-const solvedAllProblembyUser = async (req, res, next) => {
+const solvedAllProblembyUser = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const solvedProblems = await prisma.userSolvedProblem.findMany({
-      where: {
-        userId: req.result.id
-      },
-      include: {
-        problem: {
-          include: {
-            problemTags: {
-              include: {
-                tag: true
-              }
-            }
-          }
-        }
-      }
-    });
+    const solvedProblems =
+      await prisma.userSolvedProblem.findMany({
+        where: {
+          userId: req.result.id,
+        },
+        include: {
+          problem: {
+            include: {
+              problemTags: {
+                include: {
+                  tag: true,
+                },
+              },
+            },
+          },
+        },
+      });
 
-    res.status(200).send(solvedProblems.map(({ problem }) => toProblemSummary(problem)));
+    res
+      .status(200)
+      .send(
+        solvedProblems.map(
+          ({ problem }) =>
+            toProblemSummary(problem)
+        )
+      );
   } catch (err) {
     next(err);
   }
 };
 
-const submittedProblem = async (req, res, next) => {
+const submittedProblem = async (
+  req,
+  res,
+  next
+) => {
   try {
     const userId = req.result.id;
     const problemId = req.params.pid;
-    const ans = await prisma.submission.findMany({
-      where: {
-        userId,
-        problemId
-      }
-    });
+
+    const ans =
+      await prisma.submission.findMany({
+        where: {
+          userId,
+          problemId,
+        },
+      });
 
     if (ans.length === 0) {
-      return res.status(200).send('No Submission is persent');
+      return res
+        .status(200)
+        .send("No Submission is persent");
     }
 
     res.status(200).send(ans);
@@ -401,5 +604,5 @@ module.exports = {
   getProblemById,
   getAllProblem,
   solvedAllProblembyUser,
-  submittedProblem
+  submittedProblem,
 };
