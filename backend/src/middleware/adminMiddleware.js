@@ -35,9 +35,16 @@ const adminMiddleware = async (req,res,next)=>{
         }
 
         const result = await prisma.user.findUnique({
-            where: { id: _id }        
+             where: {
+                id: _id,
+            },
+            select: {                         // ← CHANGED
+                id: true,                       // ← NEW
+                firstName: true,                // ← NEW
+                emailId: true,                  // ← NEW
+                role: true,                     // ← NEW
+            },                                // ← NEW
         });
-
         if(!result){
             throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
         }

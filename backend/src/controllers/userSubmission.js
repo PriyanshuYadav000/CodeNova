@@ -42,17 +42,22 @@ const submitCode = async (req, res, next) => {
 
     const problem = await prisma.problem.findUnique({
       where: { id: problemId },
-      include: {
-        testCases: {
-          where: {
-            visibility: 'hidden'
-          },
-          orderBy: {
-            position: 'asc'
-          }
-        }
-      }
-    });
+            select: {
+            id: true,
+            testCases: {
+      where: {
+        visibility: "hidden",
+      },
+      orderBy: {
+        position: "asc",
+      },
+      select: {
+        input: true,
+        output: true,
+      },
+    },
+  },
+});
 
     if (!problem) {
       throw new AppError('Problem not found.', 404, 'NOT_FOUND');
@@ -145,17 +150,22 @@ const runCode = async (req, res, next) => {
 
     const problem = await prisma.problem.findUnique({
       where: { id: problemId },
-      include: {
-        testCases: {
-          where: {
-            visibility: 'visible'
-          },
-          orderBy: {
-            position: 'asc'
-          }
-        }
-      }
-    });
+      select: {
+      id: true,
+      testCases: {
+      where: {
+        visibility: "visible",
+      },
+      orderBy: {
+        position: "asc",
+      },
+      select: {
+        input: true,
+        output: true,
+      },
+    },
+  },
+});
 
     if (!problem) {
       throw new AppError('Problem not found.', 404, 'NOT_FOUND');
