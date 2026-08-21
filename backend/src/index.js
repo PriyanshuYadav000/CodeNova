@@ -1,75 +1,18 @@
 const dotenv = require("dotenv");
 
-// Load environment variables FIRST
+// Load environment variables first
 dotenv.config();
 
-const validateEnvironment = require("./config/env"); // ← NEW
-validateEnvironment(); // ← NEW
+const validateEnvironment = require("./config/env");
+validateEnvironment();
 
-const express = require("express");
-const helmet = require("helmet"); // ← NEW
-const cookieParser = require("cookie-parser");
-const cors = require("cors");
-
-// Load environment variables FIRST
-const app = express();
+const app = require("./app");
 
 // Database
 const main = require("./config/db");
 
 // Redis
 const redisClient = require("./config/redis");
-
-// Routes
-const authRouter = require("./routes/userAuth");
-const problemRouter = require("./routes/problemCreator");
-const submitRouter = require("./routes/submit");
-const AppError = require("./utils/AppError");
-const errorMiddleware = require("./middleware/errorMiddleware");
-
-// Security headers
-app.use(helmet()); // ← NEW
-
-// CORS
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL, // ← EXISTING, now restricted to configured frontend
-    credentials: true,
-  })
-);
-
-// Request body limits
-app.use(express.json({ limit: "1mb" })); // ← NEW
-
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: "1mb", // ← NEW
-  })
-);
-
-app.use(cookieParser());
-
-// Health check
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "CodeNova API is healthy",
-  });
-});
-
-// Routes
-app.use("/user", authRouter);
-app.use("/problem", problemRouter);
-app.use("/submission", submitRouter);
-
-// 404 handler
-app.all("/{*path}", (req, res, next) => {
-  next(new AppError("Route not found.", 404, "NOT_FOUND"));
-});
-
-// Centralized error middleware
-app.use(errorMiddleware);
 
 // Initialize database + Redis
 const initializeConnection = async () => {
@@ -90,7 +33,6 @@ const initializeConnection = async () => {
   } catch (error) {
     console.error("Startup error:", error);
 
-    // Close Redis connection if startup fails
     if (redisClient.isOpen) {
       await redisClient.quit().catch(() => {});
     }
