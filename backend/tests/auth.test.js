@@ -194,3 +194,116 @@ test("rejects unknown email", async () => {
     },
   });
 });
+test("returns the authenticated user from /user/check", async () => {
+  const emailId = `check-${Date.now()}@codenova.test`;
+  const password = "Test@12345";
+
+  const registerResponse = await request(app)
+    .post("/user/register")
+    .send({
+      firstName: "Check",
+      lastName: "User",
+      emailId,
+      age: 22,
+      password,
+    });
+
+  expect(registerResponse.statusCode).toBe(201);
+
+  const agent = request.agent(app);
+
+  const loginResponse = await agent
+    .post("/user/login")
+    .send({
+      emailId,
+      password,
+    });
+
+  expect(loginResponse.statusCode).toBe(200);
+
+  const checkResponse = await agent
+    .get("/user/check");
+
+  expect(checkResponse.statusCode).toBe(200);
+
+  expect(checkResponse.body).toEqual({
+    success: true,
+    message: "Valid User",
+    data: {
+      firstName: "Check",
+      emailId,
+      _id: expect.any(String),
+      role: "user",
+    },
+  });
+});
+
+test("rejects unauthenticated /user/check request", async () => {
+  const response = await request(app)
+    .get("/user/check");
+
+  expect(response.statusCode).toBe(401);
+
+  expect(response.body).toEqual({
+    success: false,
+    message: "Authentication required.",
+    error: {
+      code: "AUTHENTICATION_ERROR",
+    },
+  });
+});
+
+test("logs out successfully and blocks the JWT", async () => {
+  const emailId = `logout-${Date.now()}@codenova.test`;
+  const password = "Test@12345";
+
+  await request(app)
+    .post("/user/register")
+    .send({
+      firstName: "Logout",
+      lastName: "Test",
+      emailId,
+      age: 22,
+      password,
+    });
+
+  const agent = request.agent(app);
+
+  const loginResponse = await agent
+    .post("/user/login")
+    .send({
+      emailId,
+      password,
+    });
+
+  expect(loginResponse.statusCode).toBe(200);
+
+  const checkBeforeLogout = await agent
+    .get("/user/check");
+
+  expect(checkBeforeLogout.statusCode).toBe(200);
+
+  const logoutResponse = await agent
+    .post("/user/logout");
+
+  expect(logoutResponse.statusCode).toBe(200);
+
+  expect(logoutResponse.body).toEqual({
+    success: true,
+    message: "Logged out successfully",
+    data: null,
+  });
+
+  const checkAfterLogout = await agent
+    .get("/user/check");
+
+  expect(checkAfterLogout.statusCode).toBe(401);
+
+  expect(checkAfterLogout.body).toEqual({
+    success: false,
+    message: "Authentication required.",
+    error: {
+      code: "AUTHENTICATION_ERROR",
+    },
+  });
+});
