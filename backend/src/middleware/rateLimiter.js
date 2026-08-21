@@ -1,6 +1,8 @@
 const AppError = require("../utils/AppError");
 const redisClient = require("../config/redis");
 
+const redisKey = require("../utils/redisKey");
+
 const getPositiveInteger = (value, fallback) => {
   const parsed = Number(value);
 
@@ -123,7 +125,7 @@ const rateLimiter = ({
     try {
       identity = getIdentity(req, keyType);
 
-      const redisKey = `codenova:ratelimit:${name}:${identity}:${windowId}`;
+      const rateLimitKey = redisKey(`codenova:ratelimit:${name}:${identity}:${windowId}`);
 
       /*
        * Atomic Redis Lua script:
@@ -149,7 +151,7 @@ const rateLimiter = ({
         return { current, ttl }
         `,
         {
-          keys: [redisKey],
+          keys: [rateLimitKey],
           arguments: [String(RATE_LIMIT_WINDOW_MS)],
         }
       );

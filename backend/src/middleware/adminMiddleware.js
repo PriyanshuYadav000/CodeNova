@@ -3,6 +3,8 @@ const prisma = require("../config/prisma");
 const redisClient = require("../config/redis")
 const AppError = require("../utils/AppError");
 
+const redisKey = require("../utils/redisKey") //testing
+
 const adminMiddleware = async (req,res,next)=>{
 
     try{
@@ -20,9 +22,9 @@ const adminMiddleware = async (req,res,next)=>{
 
         // Redis ke blockList mein persent toh nahi hai
 
-        const IsBlocked = await redisClient.exists(`token:${token}`);
+        const isBlocked = await redisClient.exists(redisKey(`token:${token}`));
 
-        if(IsBlocked)
+        if(isBlocked)
             throw new AppError("Authentication required.", 401, "AUTHENTICATION_ERROR");
 
         if(payload.role!='admin')

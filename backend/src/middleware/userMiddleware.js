@@ -3,6 +3,9 @@ const prisma = require("../config/prisma");
 const redisClient = require("../config/redis");
 const AppError = require("../utils/AppError");
 
+// for test
+const redisKey = require("../utils/redisKey");
+
 const userMiddleware = async (req, res, next) => {
   try {
     const { token } = req.cookies;
@@ -27,7 +30,7 @@ const userMiddleware = async (req, res, next) => {
       );
     }
 
-    const isBlocked = await redisClient.exists(`token:${token}`);
+    const isBlocked = await redisClient.exists(redisKey(`token:${token}`));
 
     if (isBlocked) {
       throw new AppError(

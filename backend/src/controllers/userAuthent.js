@@ -4,6 +4,8 @@ const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 const AppError = require('../utils/AppError');
 
+const redisKey = require("../utils/redisKey"); 
+
 const tokenCookieOptions = {
     maxAge: 60 * 60 * 1000,
     httpOnly: true,
@@ -106,8 +108,8 @@ const logout = async (req, res, next) => {
 
         const payload = jwt.decode(token);
 
-        await redisClient.set(`token:${token}`, 'Blocked');
-        await redisClient.expireAt(`token:${token}`, payload.exp);
+        await redisClient.set(redisKey(`token:${token}`),"Blocked"); // ← CHANGED
+        await redisClient.expireAt(redisKey(`token:${token}`), payload.exp); // ← CHANGED
 
         res.clearCookie("token", clearTokenCookieOptions);
         res.status(200).json({
