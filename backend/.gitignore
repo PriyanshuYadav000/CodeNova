@@ -2,4 +2,6 @@ node_modules/
 .env
 .env.test
 .DS_Store
-/src/generated/prisma/
+coverage/
+generated/
+src/generated/prisma/
