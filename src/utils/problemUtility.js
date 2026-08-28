@@ -1,0 +1,133 @@
+const axios = require('axios');
+const AppError = require('./AppError');
+
+
+const getLanguageById = (lang)=>{
+
+    const language = {
+        "c++":54,
+        "java":62,
+        "javascript":63
+    }
+
+
+    if(typeof lang !== 'string')
+      throw new AppError('Unsupported language.', 400, 'VALIDATION_ERROR');
+
+    const languageId = language[lang.toLowerCase()];
+
+    if(!languageId)
+      throw new AppError('Unsupported language.', 400, 'VALIDATION_ERROR');
+
+    return languageId;
+}
+
+
+const submitBatch = async (submissions)=>{
+
+
+const options = {
+  method: 'POST',
+  url: 'https://judge0-ce.p.rapidapi.com/submissions/batch',
+  params: {
+    base64_encoded: 'false'
+  },
+  headers: {
+    'x-rapidapi-key': process.env.JUDGE0_KEY,
+    'x-rapidapi-host': 'judge0-ce.p.rapidapi.com',
+    'Content-Type': 'application/json'
+  },
+  data: {
+    submissions
+  }
+};
+
+async function fetchData() {
+	try {
+		const response = await axios.request(options);
+		return response.data;
+	} catch (error) {
+		throw new AppError('Code execution service is unavailable.', 503, 'EXTERNAL_SERVICE_ERROR');
+	}
+}
+
+ return await fetchData();
+
+}
+
+
+const waiting = (timer)=> new Promise((resolve)=> setTimeout(resolve,timer));
+
+// ["db54881d-bcf5-4c7b-a2e3-d33fe7e25de7","ecc52a9b-ea80-4a00-ad50-4ab6cc3bb2a1","1b35ec3b-5776-48ef-b646-d5522bdeb2cc"]
+
+const submitToken = async(resultToken)=>{
+
+const options = {
+  method: 'GET',
+  url: 'https://judge0-ce.p.rapidapi.com/submissions/batch',
+  params: {
+    tokens: resultToken.join(","),
+    base64_encoded: 'false',
+    fields: '*'
+  },
+  headers: {
+    'x-rapidapi-key': process.env.JUDGE0_KEY,
+    'x-rapidapi-host': 'judge0-ce.p.rapidapi.com'
+  }
+};
+
+async function fetchData() {
+	try {
+		const response = await axios.request(options);
+		return response.data;
+	} catch (error) {
+		throw new AppError('Code execution service is unavailable.', 503, 'EXTERNAL_SERVICE_ERROR');
+	}
+}
+
+
+ const maxPollingAttempts = 30;
+
+ for(let attempt = 0; attempt < maxPollingAttempts; attempt++){
+  const result =  await fetchData();
+
+  const IsResultObtained =  result.submissions.every((r)=>r.status_id>2);
+
+  if(IsResultObtained)
+    return result.submissions;
+
+  if(attempt < maxPollingAttempts - 1)
+    await waiting(1000);
+ }
+
+ throw new AppError('Code execution timed out.', 503, 'EXTERNAL_SERVICE_ERROR');
+
+
+
+}
+
+const executeJudge0 = async (sourceCode, language, testCases) => {
+  const languageId = getLanguageById(language);
+  const submissions = testCases.map((testcase) => ({
+    source_code: sourceCode,
+    language_id: languageId,
+    stdin: testcase.input,
+    expected_output: testcase.output
+  }));
+
+  const submitResult = await submitBatch(submissions);
+  const resultToken = submitResult.map((value) => value.token);
+
+  return submitToken(resultToken);
+};
+
+module.exports = {getLanguageById,submitBatch,submitToken,executeJudge0};
+
+
+
+
+
+
+
+
+// 

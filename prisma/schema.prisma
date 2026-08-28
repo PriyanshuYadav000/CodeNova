@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum ProblemDifficulty {
+  easy
+  medium
+  hard
+}
+
+enum TestCaseVisibility {
+  visible
+  hidden
+}
+
+enum SubmissionStatus {
+  pending
+  accepted
+  wrong_answer
+  runtime_error
+  compilation_error
+  time_limit_exceeded
+  memory_limit_exceeded
+  internal_error
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  firstName String   @map("first_name") @db.VarChar(20)
+  lastName  String?  @map("last_name") @db.VarChar(20)
+  emailId   String   @unique @map("email_id") @db.VarChar(320)
+  age       Int?
+  role      UserRole @default(user)
+  password  String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdProblems Problem[]           @relation("ProblemCreator")
+  submissions     Submission[]
+  solvedProblems  UserSolvedProblem[]
+
+  @@map("users")
+}
+
+model Problem {
+  id               String            @id @default(uuid()) @db.Uuid
+  title            String            @db.VarChar(255)
+  normalizedTitle  String            @unique @map("normalized_title") @db.VarChar(255)
+  description      String            @db.Text
+  difficulty       ProblemDifficulty
+  problemCreatorId String            @map("problem_creator_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  problemCreator     User                       @relation("ProblemCreator", fields: [problemCreatorId], references: [id], onDelete: Restrict)
+  problemTags        ProblemTag[]
+  testCases          ProblemTestCase[]
+  referenceSolutions ProblemReferenceSolution[]
+  starterCode        ProblemStarterCode[]
+  solvedBy           UserSolvedProblem[]
+  submissions        Submission[]
+
+  @@index([problemCreatorId])
+  @@index([title])
+  @@index([difficulty])
+  @@map("problems")
+}
+
+model Tag {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @unique @db.Text
+  problemTags ProblemTag[]
+
+  @@map("tags")
+}
+
+model ProblemTag {
+  problemId String @map("problem_id") @db.Uuid
+  tagId     String @map("tag_id") @db.Uuid
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([problemId, tagId])
+  @@index([tagId, problemId])
+  @@map("problem_tags")
+}
+
+model ProblemTestCase {
+  id          String             @id @default(uuid()) @db.Uuid
+  problemId   String             @map("problem_id") @db.Uuid
+  visibility  TestCaseVisibility
+  position    Int
+  input       String             @db.Text
+  output      String             @db.Text
+  explanation String?            @db.Text
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, visibility, position])
+  @@map("problem_test_cases")
+}
+
+model ProblemReferenceSolution {
+  id           String @id @default(uuid()) @db.Uuid
+  problemId    String @map("problem_id") @db.Uuid
+  position     Int
+  language     String @db.VarChar(32)
+  completeCode String @map("complete_code") @db.Text
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, position])
+  @@map("problem_reference_solutions")
+}
+
+model ProblemStarterCode {
+  id          String @id @default(uuid()) @db.Uuid
+  problemId   String @map("problem_id") @db.Uuid
+  position    Int
+  language    String @db.VarChar(32)
+  initialCode String @map("initial_code") @db.Text
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, position])
+  @@map("problem_starter_code")
+}
+
+model UserSolvedProblem {
+  userId    String @map("user_id") @db.Uuid
+  problemId String @map("problem_id") @db.Uuid
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, problemId])
+  @@index([problemId, userId])
+  @@map("user_solved_problems")
+}
+
+model Submission {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  problemId       String           @map("problem_id") @db.Uuid
+  code            String           @db.Text
+  language        String           @db.VarChar(32)
+  status          SubmissionStatus @default(pending)
+  runtime         Float            @default(0)
+  memory          Float            @default(0)
+  errorMessage    String?          @default("") @map("error_message") @db.Text
+  testCasesPassed Int              @default(0) @map("test_cases_passed")
+  testCasesTotal  Int              @default(0) @map("test_cases_total")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([userId, problemId])
+  @@map("submissions")
+}
