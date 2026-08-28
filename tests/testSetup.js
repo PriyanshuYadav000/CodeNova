@@ -10,13 +10,12 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  const rateLimitPattern =
-    "test:codenova:codenova:ratelimit:*";
+  const testKeys = await redisClient.keys(
+    "test:codenova:*"
+  );
 
-  const keys = await redisClient.keys(rateLimitPattern);
-
-  if (keys.length > 0) {
-    await redisClient.del(keys);
+  if (testKeys.length > 0) {
+    await redisClient.del(testKeys);
   }
 });
 
@@ -27,4 +26,3 @@ afterAll(async () => {
 
   await prisma.$disconnect();
 });
-

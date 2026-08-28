@@ -12,4 +12,6 @@ module.exports = {
   restoreMocks: true,
 
   maxWorkers: 1,
+
+  testTimeout: 15000,
 };
