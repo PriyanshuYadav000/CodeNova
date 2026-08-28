@@ -7,7 +7,9 @@ const cacheTtlSeconds = Number(
 
 const getCache = async (key) => {
   try {
-    const cachedValue = await redisClient.get(key);
+    const cachedValue = await redisClient.get(
+      redisKey(key) 
+    );
 
     if (!cachedValue) {
       console.log(`Cache MISS: ${key}`);
@@ -27,11 +29,19 @@ const getCache = async (key) => {
   }
 };
 
-const setCache = async (key, value, ttlSeconds = cacheTtlSeconds) => {
+const setCache = async (
+  key,
+  value,
+  ttlSeconds = cacheTtlSeconds
+) => {
   try {
-    await redisClient.set(key, JSON.stringify(value), {
-      EX: ttlSeconds,
-    });
+    await redisClient.set(
+      redisKey(key), 
+      JSON.stringify(value),
+      {
+        EX: ttlSeconds,
+      }
+    );
 
     console.log(`Cache SET: ${key}`);
   } catch (error) {
@@ -44,7 +54,9 @@ const setCache = async (key, value, ttlSeconds = cacheTtlSeconds) => {
 
 const deleteCache = async (key) => {
   try {
-    await redisClient.del(key);
+    await redisClient.del(
+      redisKey(key) 
+    );
 
     console.log(`Cache DELETE: ${key}`);
   } catch (error) {
@@ -56,7 +68,9 @@ const deleteCache = async (key) => {
 };
 
 const deleteCaches = async (keys) => {
-  await Promise.all(keys.map((key) => deleteCache(key)));
+  await Promise.all(
+    keys.map((key) => deleteCache(key))
+  );
 };
 
 module.exports = {

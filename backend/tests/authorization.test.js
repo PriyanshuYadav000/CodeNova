@@ -1,3 +1,7 @@
+jest.mock("../src/utils/judge0Validator", () => ({
+  validateReferenceSolutions: jest.fn().mockResolvedValue(undefined),
+}));
+
 const request = require("supertest");
 const bcrypt = require("bcrypt");
 
