@@ -1,3 +1,7 @@
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./docs/swagger");
+
+
 const express = require("express");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
@@ -34,6 +38,9 @@ app.use(
 
 app.use(cookieParser());
 
+// Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Health check
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -46,6 +53,7 @@ app.get("/health", (req, res) => {
 app.use("/user", authRouter);
 app.use("/problem", problemRouter);
 app.use("/submission", submitRouter);
+
 
 // 404 handler
 app.all("/{*path}", (req, res, next) => {
