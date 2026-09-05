@@ -163,14 +163,27 @@ function Homepage() {
             </div>
 
             <ul className="mt-3 p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
+              {/* Dashboard */}
+              <li>
+                <NavLink to="/dashboard">
+                  Dashboard
+                </NavLink>
+              </li>
+
+              {/* Admin */}
               {user?.role === 'admin' && (
                 <li>
-                  <NavLink to="/admin">Admin</NavLink>
+                  <NavLink to="/admin">
+                    Admin
+                  </NavLink>
                 </li>
               )}
 
+              {/* Logout */}
               <li>
-                <button onClick={handleLogout}>Logout</button>
+                <button onClick={handleLogout}>
+                  Logout
+                </button>
               </li>
             </ul>
           </div>
