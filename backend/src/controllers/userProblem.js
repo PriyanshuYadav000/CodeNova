@@ -595,12 +595,121 @@ const submittedProblem = async (req, res, next) => {
     next(err);
   }
 };
+const getAdminProblemById = async (req, res, next) => {
+  const { id } = req.params;
 
+  try {
+    if (!id) {
+      throw new AppError(
+        'Missing ID field.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const problem = await prisma.problem.findUnique({
+      where: { id },
+
+      include: {
+        problemTags: {
+          include: {
+            tag: true,
+          },
+        },
+
+        testCases: {
+          orderBy: {
+            position: 'asc',
+          },
+        },
+
+        starterCode: {
+          orderBy: {
+            position: 'asc',
+          },
+        },
+
+        referenceSolutions: {
+          orderBy: {
+            position: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!problem) {
+      throw new AppError(
+        'Problem not found.',
+        404,
+        'NOT_FOUND'
+      );
+    }
+
+    const visibleTestCases = problem.testCases
+      .filter(
+        (testCase) =>
+          testCase.visibility === 'visible'
+      )
+      .map((testCase) => ({
+        input: testCase.input,
+        output: testCase.output,
+        explanation: testCase.explanation,
+      }));
+
+    const hiddenTestCases = problem.testCases
+      .filter(
+        (testCase) =>
+          testCase.visibility === 'hidden'
+      )
+      .map((testCase) => ({
+        input: testCase.input,
+        output: testCase.output,
+        explanation: testCase.explanation,
+      }));
+
+    const response = {
+      _id: problem.id,
+      title: problem.title,
+      description: problem.description,
+      difficulty: problem.difficulty,
+
+      tags: problem.problemTags.map(
+        (problemTag) =>
+          problemTag.tag.name
+      ),
+
+      visibleTestCases,
+
+      hiddenTestCases,
+
+      startCode: problem.starterCode.map(
+        (code) => ({
+          language: code.language,
+          initialCode: code.initialCode,
+        })
+      ),
+
+      referenceSolution:
+        problem.referenceSolutions.map(
+          (solution) => ({
+            language: solution.language,
+            completeCode:
+              solution.completeCode,
+          })
+        ),
+    };
+
+    res.status(200).json(response);
+  } catch (err) {
+    next(err);
+  }
+};
 module.exports = {
   createProblem,
   updateProblem,
   deleteProblem,
   getProblemById,
+  getAdminProblemById,
   getAllProblem,
   solvedAllProblembyUser,
   submittedProblem,

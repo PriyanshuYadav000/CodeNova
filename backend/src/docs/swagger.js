@@ -2883,6 +2883,129 @@ const swaggerDefinition = {
         },
       },
     },
+    "/problem/admin/{id}": {
+  get: {
+    tags: ["Problems"],
+    summary: "Get complete problem details for admin editing",
+
+    description:
+      "Returns complete problem data for an authenticated administrator, including visible and hidden test cases, starter code, and reference solutions.",
+
+    security: [{ cookieAuth: [] }],
+
+    parameters: [
+      {
+        name: "id",
+        in: "path",
+        required: true,
+        description: "Unique identifier of the problem.",
+        schema: {
+          type: "string",
+          format: "uuid",
+        },
+      },
+    ],
+
+    responses: {
+      200: {
+        description:
+          "Complete problem data returned for admin editing",
+
+        content: {
+          "application/json": {
+            example: {
+              _id: "00000000-0000-0000-0000-000000000000",
+              title: "Two Sum",
+              description: "Find two numbers that add up to target.",
+              difficulty: "easy",
+              tags: ["array", "hashmap"],
+
+              visibleTestCases: [
+                {
+                  input: "[2,7,11,15], 9",
+                  output: "[0,1]",
+                  explanation:
+                    "2 + 7 = 9, so indices 0 and 1 are returned.",
+                },
+              ],
+
+              hiddenTestCases: [
+                {
+                  input: "[3,2,4], 6",
+                  output: "[1,2]",
+                  explanation: null,
+                },
+              ],
+
+              startCode: [
+                {
+                  language: "C++",
+                  initialCode: "// Write your solution here",
+                },
+                {
+                  language: "Java",
+                  initialCode: "// Write your solution here",
+                },
+                {
+                  language: "JavaScript",
+                  initialCode: "// Write your solution here",
+                },
+              ],
+
+              referenceSolution: [
+                {
+                  language: "C++",
+                  completeCode: "// Reference solution",
+                },
+                {
+                  language: "Java",
+                  completeCode: "// Reference solution",
+                },
+                {
+                  language: "JavaScript",
+                  completeCode: "// Reference solution",
+                },
+              ],
+            },
+          },
+        },
+      },
+
+      401: {
+        description: "Authentication required",
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/ErrorResponse",
+            },
+          },
+        },
+      },
+
+      403: {
+        description: "Admin privileges required",
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/ErrorResponse",
+            },
+          },
+        },
+      },
+
+      404: {
+        description: "Problem not found",
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/ErrorResponse",
+            },
+          },
+        },
+      },
+    },
+  },
+},
   },
 };
 

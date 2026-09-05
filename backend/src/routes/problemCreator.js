@@ -7,7 +7,8 @@ const {
   getProblemById,
   getAllProblem,
   solvedAllProblembyUser,
-  submittedProblem
+  submittedProblem,
+  getAdminProblemById
 } = require('../controllers/userProblem');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const userMiddleware = require('../middleware/userMiddleware');
@@ -21,8 +22,10 @@ problemRouter.put('/update/:id', adminMiddleware,adminWriteRateLimiter, validate
 problemRouter.delete('/delete/:id', adminMiddleware,adminWriteRateLimiter, asyncHandler(deleteProblem));
 
 problemRouter.get('/problemById/:id',userMiddleware,generalRateLimiter, asyncHandler(getProblemById));
+
+problemRouter.get('/admin/:id',adminMiddleware,generalRateLimiter,asyncHandler(getAdminProblemById));
+
 problemRouter.get('/getAllProblem', userMiddleware, generalRateLimiter, asyncHandler(getAllProblem));
 problemRouter.get('/problemSolvedByUser', userMiddleware,generalRateLimiter, asyncHandler(solvedAllProblembyUser));
 problemRouter.get('/submittedProblem/:pid', userMiddleware,generalRateLimiter, asyncHandler(submittedProblem));
-
 module.exports = problemRouter;
