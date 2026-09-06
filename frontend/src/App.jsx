@@ -12,6 +12,8 @@ import AdminDelete from "./components/AdminDelete"
 import UpdateProblem from "./pages/UpdateProblem";
 import Dashboard from "./pages/Dashboard";
 
+import Settings from "./pages/Settings";
+
 function App(){
   
   const dispatch = useDispatch();
@@ -40,7 +42,8 @@ function App(){
       <Route path="/problem/:problemId" element={<ProblemPage/>}></Route>
       <Route path="/admin/update" element={isAuthenticated && user?.role === 'admin' ? <UpdateProblem /> : <Navigate to="/" />} />
       <Route path="/dashboard" element={isAuthenticated ? (<Dashboard />) : (<Navigate to="/login" />) } />
-    </Routes>
+      <Route path="/settings" element={isAuthenticated ? <Settings /> : <Navigate to="/login" /> } />
+      </Routes>
   </>
   )
 }

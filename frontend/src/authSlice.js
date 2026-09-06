@@ -59,6 +59,65 @@ export const checkAuth = createAsyncThunk(
   }
 );
 
+export const updateProfile = createAsyncThunk(
+  "auth/updateProfile",
+  async (profileData, { rejectWithValue }) => {
+    try {
+      const response = await axiosClient.patch(
+        "/user/profile",
+        profileData
+      );
+
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || {
+          message: "Unable to update profile."
+        }
+      );
+    }
+  }
+);
+
+export const changePassword = createAsyncThunk(
+  "auth/changePassword",
+  async (passwordData, { rejectWithValue }) => {
+    try {
+      const response = await axiosClient.patch(
+        "/user/password",
+        passwordData
+      );
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || {
+          message: "Unable to change password."
+        }
+      );
+    }
+  }
+);
+
+export const deleteProfile = createAsyncThunk(
+  "auth/deleteProfile",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosClient.delete(
+        "/user/deleteProfile"
+      );
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || {
+          message: "Unable to delete profile."
+        }
+      );
+    }
+  }
+);
+
 export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
@@ -169,6 +228,73 @@ const authSlice = createSlice({
             action.payload?.message ||
             'Unable to verify authentication.';
         }
+      })
+
+      // ==========================================
+      // UPDATE PROFILE
+      // ==========================================
+
+      .addCase(updateProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.payload?.message ||
+          'Unable to update profile.';
+      })
+
+      // ==========================================
+      // CHANGE PASSWORD
+      // ==========================================
+
+      .addCase(changePassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(changePassword.fulfilled, (state) => {
+        state.loading = false;
+        state.error = null;
+      })
+
+      .addCase(changePassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.payload?.message ||
+          'Unable to change password.';
+      })
+
+      // ==========================================
+      // DELETE PROFILE
+      // ==========================================
+
+      .addCase(deleteProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(deleteProfile.fulfilled, (state) => {
+        state.loading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+        state.error = null;
+      })
+
+      .addCase(deleteProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.payload?.message ||
+          'Unable to delete profile.';
       })
 
       // ==========================================

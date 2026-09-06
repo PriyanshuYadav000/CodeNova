@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { Settings } from 'lucide-react';
+
 import axiosClient from '../utils/axiosClient';
 import { logoutUser } from '../authSlice';
 
@@ -30,8 +32,17 @@ function Homepage() {
           axiosClient.get('/problem/problemSolvedByUser'),
         ]);
 
-        setProblems(problemsResponse.data);
-        setSolvedProblems(solvedResponse.data);
+        setProblems(
+          Array.isArray(problemsResponse.data)
+            ? problemsResponse.data
+            : []
+        );
+
+        setSolvedProblems(
+          Array.isArray(solvedResponse.data)
+            ? solvedResponse.data
+            : []
+        );
       } catch (error) {
         console.error('Error loading homepage:', error);
 
@@ -122,13 +133,19 @@ function Homepage() {
       <div className="min-h-screen bg-base-200">
         <nav className="navbar bg-base-100 shadow-lg px-4">
           <div className="flex-1">
-            <NavLink to="/" className="btn btn-ghost text-xl">
+            <NavLink
+              to="/"
+              className="btn btn-ghost text-xl"
+            >
               CodeNova
             </NavLink>
           </div>
 
           <div className="flex-none">
-            <button onClick={handleLogout} className="btn btn-ghost">
+            <button
+              onClick={handleLogout}
+              className="btn btn-ghost"
+            >
               Logout
             </button>
           </div>
@@ -145,14 +162,30 @@ function Homepage() {
 
   return (
     <div className="min-h-screen bg-base-200">
+      {/* Navbar */}
       <nav className="navbar bg-base-100 shadow-lg px-4">
         <div className="flex-1">
-          <NavLink to="/" className="btn btn-ghost text-xl">
+          <NavLink
+            to="/"
+            className="btn btn-ghost text-xl"
+          >
             CodeNova
           </NavLink>
         </div>
 
-        <div className="flex-none">
+        <div className="flex-none flex items-center gap-2">
+
+          {/* Settings Icon */}
+          <NavLink
+            to="/settings"
+            className="btn btn-ghost btn-circle"
+            title="Settings"
+            aria-label="Settings"
+          >
+            <Settings size={20} />
+          </NavLink>
+
+          {/* User Menu */}
           <div className="dropdown dropdown-end">
             <div
               tabIndex={0}
@@ -163,6 +196,7 @@ function Homepage() {
             </div>
 
             <ul className="mt-3 p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
+
               {/* Dashboard */}
               <li>
                 <NavLink to="/dashboard">
@@ -181,26 +215,38 @@ function Homepage() {
 
               {/* Logout */}
               <li>
-                <button onClick={handleLogout}>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                >
                   Logout
                 </button>
               </li>
+
             </ul>
           </div>
         </div>
       </nav>
 
+      {/* Main Content */}
       <main className="container mx-auto p-4">
         <div className="flex flex-col gap-4 mb-6">
+
+          {/* Heading */}
           <div>
-            <h1 className="text-3xl font-bold">Problems</h1>
+            <h1 className="text-3xl font-bold">
+              Problems
+            </h1>
 
             <p className="text-base-content/60">
               Practice coding problems and track your progress.
             </p>
           </div>
 
+          {/* Filters */}
           <div className="flex flex-wrap gap-4">
+
+            {/* Status */}
             <select
               className="select select-bordered"
               value={filters.status}
@@ -211,11 +257,20 @@ function Homepage() {
                 }))
               }
             >
-              <option value="all">All Problems</option>
-              <option value="solved">Solved</option>
-              <option value="unsolved">Unsolved</option>
+              <option value="all">
+                All Problems
+              </option>
+
+              <option value="solved">
+                Solved
+              </option>
+
+              <option value="unsolved">
+                Unsolved
+              </option>
             </select>
 
+            {/* Difficulty */}
             <select
               className="select select-bordered"
               value={filters.difficulty}
@@ -226,12 +281,24 @@ function Homepage() {
                 }))
               }
             >
-              <option value="all">All Difficulties</option>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
+              <option value="all">
+                All Difficulties
+              </option>
+
+              <option value="easy">
+                Easy
+              </option>
+
+              <option value="medium">
+                Medium
+              </option>
+
+              <option value="hard">
+                Hard
+              </option>
             </select>
 
+            {/* Tags */}
             <select
               className="select select-bordered"
               value={filters.tag}
@@ -242,15 +309,21 @@ function Homepage() {
                 }))
               }
             >
-              <option value="all">All Tags</option>
+              <option value="all">
+                All Tags
+              </option>
 
               {availableTags.map((tag) => (
-                <option key={tag} value={tag}>
+                <option
+                  key={tag}
+                  value={tag}
+                >
                   {tag}
                 </option>
               ))}
             </select>
 
+            {/* Reset */}
             <button
               type="button"
               className="btn btn-ghost"
@@ -261,14 +334,19 @@ function Homepage() {
           </div>
         </div>
 
+        {/* Problem Count */}
         <div className="mb-4 text-sm text-base-content/60">
           Showing {filteredProblems.length} of {problems.length} problems
         </div>
 
+        {/* No Problems */}
         {filteredProblems.length === 0 ? (
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body items-center text-center">
-              <h2 className="card-title">No problems found</h2>
+
+              <h2 className="card-title">
+                No problems found
+              </h2>
 
               <p className="text-base-content/60">
                 Try changing your filters.
@@ -281,18 +359,24 @@ function Homepage() {
               >
                 Clear Filters
               </button>
+
             </div>
           </div>
         ) : (
+
+          /* Problems */
           <div className="grid gap-4">
             {filteredProblems.map((problem) => {
+
               const problemTags = Array.isArray(problem.tags)
                 ? problem.tags
                 : problem.tags
                   ? [problem.tags]
                   : [];
 
-              const isSolved = solvedProblemIds.has(problem._id);
+              const isSolved = solvedProblemIds.has(
+                problem._id
+              );
 
               return (
                 <div
@@ -300,7 +384,9 @@ function Homepage() {
                   className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow"
                 >
                   <div className="card-body">
+
                     <div className="flex items-center justify-between gap-4">
+
                       <h2 className="card-title">
                         <NavLink
                           to={`/problem/${problem._id}`}
@@ -310,8 +396,10 @@ function Homepage() {
                         </NavLink>
                       </h2>
 
+                      {/* Solved Badge */}
                       {isSolved && (
                         <div className="badge badge-success gap-2">
+
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-4 w-4"
@@ -328,9 +416,12 @@ function Homepage() {
                           Solved
                         </div>
                       )}
+
                     </div>
 
+                    {/* Difficulty + Tags */}
                     <div className="flex flex-wrap gap-2 mt-2">
+
                       <div
                         className={`badge ${getDifficultyBadgeColor(
                           problem.difficulty
@@ -347,7 +438,9 @@ function Homepage() {
                           {tag}
                         </div>
                       ))}
+
                     </div>
+
                   </div>
                 </div>
               );
