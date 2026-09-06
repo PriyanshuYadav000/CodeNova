@@ -17,6 +17,8 @@ const judge0StatusToSubmissionStatus = {
   15: 'memory_limit_exceeded'
 };
 
+
+
 const getSubmissionStatus = (judge0StatusId) => (
   judge0StatusToSubmissionStatus[judge0StatusId] || 'internal_error'
 );
@@ -76,6 +78,19 @@ const submitCode = async (req, res, next) => {
     });
 
     const testResult = await executeJudge0(code, language, hiddenTestCases);
+
+//     console.log(
+//   '\n========== JUDGE0 SUBMISSION TEST RESULTS =========='
+// );
+
+// console.log(
+//   JSON.stringify(testResult, null, 2)
+// );
+
+// console.log(
+//   '====================================================\n'
+// );
+
     let testCasesPassed = 0;
     let runtime = 0;
     let memory = 0;

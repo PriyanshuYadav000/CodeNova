@@ -10,7 +10,7 @@ import ProblemPage from "./pages/ProblemPage"
 import Admin from "./pages/Admin";
 import AdminDelete from "./components/AdminDelete"
 import UpdateProblem from "./pages/UpdateProblem";
-
+import Dashboard from "./pages/Dashboard";
 
 function App(){
   
@@ -39,6 +39,7 @@ function App(){
       <Route path="/admin/delete" element={isAuthenticated && user?.role === 'admin' ? <AdminDelete /> : <Navigate to="/" />} />
       <Route path="/problem/:problemId" element={<ProblemPage/>}></Route>
       <Route path="/admin/update" element={isAuthenticated && user?.role === 'admin' ? <UpdateProblem /> : <Navigate to="/" />} />
+      <Route path="/dashboard" element={isAuthenticated ? (<Dashboard />) : (<Navigate to="/login" />) } />
     </Routes>
   </>
   )

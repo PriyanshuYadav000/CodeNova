@@ -15,10 +15,6 @@ import {
 } from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
-// NOTE: adjust this import path / action name if your logout
-// thunk lives somewhere else or is named differently in your
-// authSlice. This assumes a standard Redux Toolkit async thunk
-// called `logoutUser` that hits your logout API endpoint.
 import { logoutUser } from '../authSlice';
 
 function Dashboard() {
@@ -32,10 +28,6 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // ============================================================
-  // LOGOUT (new)
-  // ============================================================
-
   const handleLogout = () => {
     dispatch(logoutUser())
       .unwrap()
@@ -44,8 +36,6 @@ function Dashboard() {
       })
       .catch((err) => {
         console.error('Logout failed:', err);
-        // Even if the API call fails, send the user to login so
-        // they aren't stuck on a stale "authenticated" screen.
         navigate('/login');
       });
   };
@@ -152,9 +142,15 @@ function Dashboard() {
     return stats;
   }, [problems, solvedProblemIds]);
 
+  // Only solved problems are shown in this section.
+  // Maximum 6 are shown on the dashboard.
   const recentProblems = useMemo(() => {
-    return [...problems].slice(0, 6);
-  }, [problems]);
+    return problems
+      .filter((problem) =>
+        solvedProblemIds.has(problem._id)
+      )
+      .slice(0, 6);
+  }, [problems, solvedProblemIds]);
 
   if (loading) {
     return (
@@ -229,6 +225,7 @@ function Dashboard() {
               {/* Dashboard */}
               <li>
                 <NavLink to="/dashboard">
+                  <Target size={16} />
                   Dashboard
                 </NavLink>
               </li>
@@ -236,6 +233,7 @@ function Dashboard() {
               {/* Problems */}
               <li>
                 <NavLink to="/">
+                  <Code2 size={16} />
                   Problems
                 </NavLink>
               </li>
@@ -244,6 +242,7 @@ function Dashboard() {
               {user?.role === 'admin' && (
                 <li>
                   <NavLink to="/admin">
+                    <ListChecks size={16} />
                     Admin
                   </NavLink>
                 </li>
@@ -251,8 +250,7 @@ function Dashboard() {
 
               <div className="divider my-1" />
 
-              {/* Profile (new) — this Dashboard page IS the
-                  user's profile view, so it links back here */}
+              {/* Profile */}
               <li>
                 <NavLink to="/dashboard">
                   <User size={16} />
@@ -260,7 +258,7 @@ function Dashboard() {
                 </NavLink>
               </li>
 
-              {/* Logout (new) */}
+              {/* Logout */}
               <li>
                 <button
                   type="button"
@@ -476,17 +474,17 @@ function Dashboard() {
           </section>
         </div>
 
-        {/* Recent Problems */}
+        {/* Solved Problems */}
         <section className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div>
                 <h2 className="card-title">
-                  Practice Problems
+                  Solved Problems
                 </h2>
 
                 <p className="text-sm text-base-content/60">
-                  Continue solving coding problems.
+                  Continue practicing problems you have solved.
                 </p>
               </div>
 
@@ -494,7 +492,7 @@ function Dashboard() {
                 to="/"
                 className="btn btn-sm btn-outline"
               >
-                View All
+                View All ({totalSolved})
                 <ArrowRight size={16} />
               </NavLink>
             </div>
@@ -504,8 +502,15 @@ function Dashboard() {
                 <Circle className="mx-auto mb-3 opacity-40" />
 
                 <p className="text-base-content/60">
-                  No problems available yet.
+                  You haven't solved any problems yet.
                 </p>
+
+                <NavLink
+                  to="/"
+                  className="btn btn-primary btn-sm mt-4"
+                >
+                  Start Solving
+                </NavLink>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -520,79 +525,61 @@ function Dashboard() {
                   </thead>
 
                   <tbody>
-                    {recentProblems.map((problem) => {
-                      const solved =
-                        solvedProblemIds.has(
-                          problem._id
-                        );
+                    {recentProblems.map((problem) => (
+                      <tr key={problem._id}>
+                        <td>
+                          <div className="font-medium">
+                            {problem.title}
+                          </div>
 
-                      return (
-                        <tr key={problem._id}>
-                          <td>
-                            <div className="font-medium">
-                              {problem.title}
-                            </div>
-
-                            {Array.isArray(problem.tags) &&
-                              problem.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {problem.tags
-                                    .slice(0, 3)
-                                    .map((tag) => (
-                                      <span
-                                        key={tag}
-                                        className="badge badge-ghost badge-sm"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                </div>
-                              )}
-                          </td>
-
-                          <td>
-                            <span
-                              className={`badge ${
-                                problem.difficulty ===
-                                'easy'
-                                  ? 'badge-success'
-                                  : problem.difficulty ===
-                                      'medium'
-                                    ? 'badge-warning'
-                                    : 'badge-error'
-                              }`}
-                            >
-                              {problem.difficulty}
-                            </span>
-                          </td>
-
-                          <td>
-                            {solved ? (
-                              <span className="badge badge-success gap-1">
-                                <CheckCircle2
-                                  size={14}
-                                />
-                                Solved
-                              </span>
-                            ) : (
-                              <span className="badge badge-ghost gap-1">
-                                <Circle size={14} />
-                                Unsolved
-                              </span>
+                          {Array.isArray(problem.tags) &&
+                            problem.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {problem.tags
+                                  .slice(0, 3)
+                                  .map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="badge badge-ghost badge-sm"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                              </div>
                             )}
-                          </td>
+                        </td>
 
-                          <td className="text-right">
-                            <NavLink
-                              to={`/problem/${problem._id}`}
-                              className="btn btn-sm btn-primary"
-                            >
-                              Solve
-                            </NavLink>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        <td>
+                          <span
+                            className={`badge ${
+                              problem.difficulty === 'easy'
+                                ? 'badge-success'
+                                : problem.difficulty === 'medium'
+                                  ? 'badge-warning'
+                                  : 'badge-error'
+                            }`}
+                          >
+                            {problem.difficulty}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className="badge badge-success gap-1">
+                            <CheckCircle2 size={14} />
+                            Solved
+                          </span>
+                        </td>
+
+                        <td className="text-right">
+                          <NavLink
+                            to={`/problem/${problem._id}`}
+                            className="btn btn-sm btn-primary"
+                          >
+                            View
+                          </NavLink>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
