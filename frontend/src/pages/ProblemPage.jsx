@@ -75,6 +75,8 @@ const ProblemPage = () => {
 
   const [problem, setProblem] = useState(null);
 
+  const [isSolved, setIsSolved] = useState(false);
+
   const [selectedLanguage, setSelectedLanguage] =
     useState('javascript');
 
@@ -130,6 +132,21 @@ const ProblemPage = () => {
         }
 
         setProblem(problemData);
+
+        const solvedResponse = await axiosClient.get(
+          '/problem/problemSolvedByUser'
+        );
+
+        const solvedProblems = Array.isArray(solvedResponse.data)
+          ? solvedResponse.data
+            : [];
+
+        const alreadySolved = solvedProblems.some(
+          (solvedProblem) =>
+            solvedProblem._id === problemData._id
+        );
+
+        setIsSolved(alreadySolved);
 
         setSelectedLanguage('javascript');
 
@@ -282,76 +299,82 @@ const ProblemPage = () => {
   // ============================================================
 
   const handleSubmitCode = async () => {
-    if (!problem) {
-      return;
+  if (!problem) {
+    return;
+  }
+
+  // Prevent blank submission.
+  if (!code.trim()) {
+    setSubmitResult({
+      accepted: false,
+      error: 'Please write some code before submitting.',
+      passedTestCases: 0,
+      totalTestCases: 0,
+      runtime: 0,
+      memory: 0,
+    });
+
+    setRunResult(null);
+    setActiveRightTab('result');
+
+    return;
+  }
+
+  setIsSubmitting(true);
+  setSubmitResult(null);
+
+  try {
+    const response = await axiosClient.post(
+      `/submission/submit/${problemId}`,
+      {
+        code,
+        language: selectedLanguage,
+      }
+    );
+
+    const result = response.data;
+
+    const accepted = Boolean(result?.accepted);
+
+    setSubmitResult({
+      accepted,
+      error: result?.error || null,
+      passedTestCases:
+        result?.passedTestCases ?? 0,
+      totalTestCases:
+        result?.totalTestCases ?? 0,
+      runtime: result?.runtime ?? 0,
+      memory: result?.memory ?? 0,
+    });
+
+    // Immediately update solved state in the UI.
+    if (accepted) {
+      setIsSolved(true);
     }
 
-    // Prevent blank submission.
-    if (!code.trim()) {
-      setSubmitResult({
-        accepted: false,
-        error:
-          'Please write some code before submitting.',
-        passedTestCases: 0,
-        totalTestCases: 0,
-        runtime: 0,
-        memory: 0,
-      });
+    setActiveRightTab('result');
+  } catch (error) {
+    console.error(
+      'Error submitting code:',
+      error.response?.data || error
+    );
 
-      setRunResult(null);
-      setActiveRightTab('result');
+    setSubmitResult({
+      accepted: false,
+      error: getErrorMessage(
+        error,
+        'Unable to submit code.'
+      ),
+      passedTestCases: 0,
+      totalTestCases: 0,
+      runtime: 0,
+      memory: 0,
+    });
 
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitResult(null);
-
-    try {
-      const response = await axiosClient.post(
-        `/submission/submit/${problemId}`,
-        {
-          code,
-          language: selectedLanguage,
-        }
-      );
-
-      const result = response.data;
-
-      setSubmitResult({
-        accepted: Boolean(result?.accepted),
-        error: result?.error || null,
-        passedTestCases:
-          result?.passedTestCases ?? 0,
-        totalTestCases:
-          result?.totalTestCases ?? 0,
-        runtime: result?.runtime ?? 0,
-        memory: result?.memory ?? 0,
-      });
-
-      setActiveRightTab('result');
-    } catch (error) {
-      console.error(
-        'Error submitting code:',
-        error.response?.data || error
-      );
-
-      setSubmitResult({
-        accepted: false,
-        error: getErrorMessage(
-          error,
-          'Unable to submit code.'
-        ),
-        passedTestCases: 0,
-        totalTestCases: 0,
-        runtime: 0,
-        memory: 0,
-      });
-
-      setActiveRightTab('result');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setActiveRightTab('result');
+  } finally {
+    setIsSubmitting(false);
+  }
   };
 
   // ============================================================
@@ -626,7 +649,12 @@ const ProblemPage = () => {
                   <h1 className="text-2xl font-bold">
                     {problem.title}
                   </h1>
-
+                  {isSolved && (
+                      <div className="badge badge-success gap-1">
+                        <CheckCircle2 size={14} />
+                        Solved
+                      </div>
+                  )}
                   <div
                     className={`badge badge-outline ${getDifficultyColor(
                       problem.difficulty

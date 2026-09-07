@@ -573,6 +573,14 @@ const submittedProblem = async (req, res, next) => {
     const userId = req.result.id;
     const problemId = req.params.pid;
 
+    if (!problemId) {
+      throw new AppError(
+        "Missing problem ID.",
+        400,
+        "VALIDATION_ERROR"
+      );
+    }
+
     const submissions = await prisma.submission.findMany({
       where: {
         userId,
@@ -584,17 +592,15 @@ const submittedProblem = async (req, res, next) => {
       take: 20,
     });
 
-    if (submissions.length === 0) {
-      return res
-        .status(200)
-        .send("No Submission is persent");
-    }
-
-    res.status(200).send(submissions);
+    res.status(200).json({
+      success: true,
+      submissions,
+    });
   } catch (err) {
     next(err);
   }
 };
+
 const getAdminProblemById = async (req, res, next) => {
   const { id } = req.params;
 

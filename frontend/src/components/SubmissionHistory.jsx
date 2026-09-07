@@ -22,19 +22,13 @@ function SubmissionHistory({ problemId }) {
           `/problem/submittedProblem/${problemId}`
         );
 
-        /*
-         * Backend can return:
-         * 1. An array of submissions
-         * 2. A string when there are no submissions
-         *
-         * Example:
-         * "No Submission is persent"
-         */
-        if (Array.isArray(response.data)) {
-          setSubmissions(response.data);
-        } else {
-          setSubmissions([]);
-        }
+        const submissionList = Array.isArray(
+          response.data?.submissions
+        )
+          ? response.data.submissions
+          : [];
+
+        setSubmissions(submissionList);
       } catch (error) {
         console.error(
           'Error fetching submission history:',
@@ -97,7 +91,11 @@ function SubmissionHistory({ problemId }) {
               ? 'badge-error'
               : status === 'compilation_error'
                 ? 'badge-warning'
-                : 'badge-ghost';
+                : status === 'time_limit_exceeded'
+                  ? 'badge-warning'
+                  : status === 'memory_limit_exceeded'
+                    ? 'badge-warning'
+                    : 'badge-ghost';
 
         return (
           <div
