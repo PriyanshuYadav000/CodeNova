@@ -33,13 +33,18 @@ function App(){
   return(
   <>
     <Routes>
-      <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
+      {/* <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route> */}
+
+      <Route  path="/" element={<Homepage />}/>
+
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
       <Route path="/admin" element={isAuthenticated && user?.role === 'admin' ? <Admin /> : <Navigate to="/" />} />
       <Route path="/admin/create" element={isAuthenticated && user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" />} />
       <Route path="/admin/delete" element={isAuthenticated && user?.role === 'admin' ? <AdminDelete /> : <Navigate to="/" />} />
-      <Route path="/problem/:problemId" element={<ProblemPage/>}></Route>
+      {/* <Route path="/problem/:problemId" element={<ProblemPage/>}></Route> */}
+
+      <Route path="/problem/:problemId" element={isAuthenticated ? <ProblemPage /> : <Navigate to="/login" /> } />
       <Route path="/admin/update" element={isAuthenticated && user?.role === 'admin' ? <UpdateProblem /> : <Navigate to="/" />} />
       <Route path="/dashboard" element={isAuthenticated ? (<Dashboard />) : (<Navigate to="/login" />) } />
       <Route path="/settings" element={isAuthenticated ? <Settings /> : <Navigate to="/login" /> } />

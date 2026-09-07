@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { Settings } from 'lucide-react';
+import {
+  Settings,
+  LogIn,
+  UserPlus,
+  LayoutDashboard,
+  LogOut,
+  ShieldCheck,
+} from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
 import { logoutUser } from '../authSlice';
@@ -22,20 +29,24 @@ function Homepage() {
   });
 
   useEffect(() => {
-    const fetchHomepageData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchHomepageData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const [problemsResponse, solvedResponse] = await Promise.all([
-          axiosClient.get('/problem/getAllProblem'),
-          axiosClient.get('/problem/problemSolvedByUser'),
-        ]);
+      const problemsResponse = await axiosClient.get(
+        '/problem/getAllProblem'
+      );
 
-        setProblems(
-          Array.isArray(problemsResponse.data)
-            ? problemsResponse.data
-            : []
+      setProblems(
+        Array.isArray(problemsResponse.data)
+          ? problemsResponse.data
+          : []
+      );
+
+      if (user) {
+        const solvedResponse = await axiosClient.get(
+          '/problem/problemSolvedByUser'
         );
 
         setSolvedProblems(
@@ -43,25 +54,29 @@ function Homepage() {
             ? solvedResponse.data
             : []
         );
-      } catch (error) {
-        console.error('Error loading homepage:', error);
-
-        setError(
-          error.response?.data?.message ||
-            'Unable to load problems. Please try again.'
-        );
-      } finally {
-        setLoading(false);
+      } else {
+        setSolvedProblems([]);
       }
-    };
+    } catch (error) {
+      console.error('Error loading homepage:', error);
 
-    if (user) {
-      fetchHomepageData();
+      setError(
+        error.response?.data?.message ||
+          'Unable to load problems. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
-  }, [user]);
+  };
+
+  fetchHomepageData();
+}, [user]);
 
   const solvedProblemIds = useMemo(
-    () => new Set(solvedProblems.map((problem) => problem._id)),
+    () =>
+      new Set(
+        solvedProblems.map((problem) => problem._id)
+      ),
     [solvedProblems]
   );
 
@@ -104,12 +119,20 @@ function Homepage() {
         (filters.status === 'unsolved' &&
           !solvedProblemIds.has(problem._id));
 
-      return difficultyMatch && tagMatch && statusMatch;
+      return (
+        difficultyMatch &&
+        tagMatch &&
+        statusMatch
+      );
     });
   }, [filters, problems, solvedProblemIds]);
 
-  const handleLogout = () => {
-    dispatch(logoutUser());
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   const resetFilters = () => {
@@ -135,23 +158,32 @@ function Homepage() {
           <div className="flex-1">
             <NavLink
               to="/"
-              className="btn btn-ghost text-xl"
+              className="btn btn-ghost text-xl font-bold"
             >
               CodeNova
             </NavLink>
           </div>
 
-          <div className="flex-none">
-            <button
-              onClick={handleLogout}
+          <div className="flex items-center gap-2">
+            <NavLink
+              to="/login"
               className="btn btn-ghost"
             >
-              Logout
-            </button>
+              <LogIn size={18} />
+              Login
+            </NavLink>
+
+            <NavLink
+              to="/signup"
+              className="btn btn-primary"
+            >
+              <UserPlus size={18} />
+              Sign Up
+            </NavLink>
           </div>
         </nav>
 
-        <main className="container mx-auto p-4">
+        <main className="container mx-auto p-4 pt-8">
           <div className="alert alert-error shadow-lg">
             <span>{error}</span>
           </div>
@@ -162,12 +194,13 @@ function Homepage() {
 
   return (
     <div className="min-h-screen bg-base-200">
-      {/* Navbar */}
+
       <nav className="navbar bg-base-100 shadow-lg px-4">
+
         <div className="flex-1">
           <NavLink
             to="/"
-            className="btn btn-ghost text-xl"
+            className="btn btn-ghost text-xl font-bold hover:text-primary transition-colors"
           >
             CodeNova
           </NavLink>
@@ -175,64 +208,118 @@ function Homepage() {
 
         <div className="flex-none flex items-center gap-2">
 
-          {/* Settings Icon */}
-          <NavLink
-            to="/settings"
-            className="btn btn-ghost btn-circle"
-            title="Settings"
-            aria-label="Settings"
-          >
-            <Settings size={20} />
-          </NavLink>
+          {!user ? (
+            <>
+              <NavLink
+                to="/login"
+                className="btn btn-ghost gap-2 hover:bg-base-200 transition-all"
+              >
+                <LogIn size={18} />
+                <span className="hidden sm:inline">
+                  Login
+                </span>
+              </NavLink>
 
-          {/* User Menu */}
-          <div className="dropdown dropdown-end">
-            <div
-              tabIndex={0}
-              role="button"
-              className="btn btn-ghost"
-            >
-              {user?.firstName}
-            </div>
+              <NavLink
+                to="/signup"
+                className="btn btn-primary gap-2 shadow-sm hover:shadow-md transition-all"
+              >
+                <UserPlus size={18} />
+                <span>
+                  Sign Up
+                </span>
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/settings"
+                className="btn btn-ghost btn-circle hover:rotate-12 hover:text-primary transition-all"
+                title="Settings"
+                aria-label="Settings"
+              >
+                <Settings size={20} />
+              </NavLink>
 
-            <ul className="mt-3 p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
-
-              {/* Dashboard */}
-              <li>
-                <NavLink to="/dashboard">
-                  Dashboard
-                </NavLink>
-              </li>
-
-              {/* Admin */}
-              {user?.role === 'admin' && (
-                <li>
-                  <NavLink to="/admin">
-                    Admin
-                  </NavLink>
-                </li>
-              )}
-
-              {/* Logout */}
-              <li>
-                <button
-                  type="button"
-                  onClick={handleLogout}
+              <div className="dropdown dropdown-end">
+                <div
+                  tabIndex={0}
+                  role="button"
+                  className="btn btn-ghost gap-2 hover:bg-base-200 transition-all"
                 >
-                  Logout
-                </button>
-              </li>
+                  <div className="avatar placeholder">
+                    <div className="bg-primary text-primary-content rounded-full w-8">
+                      <span className="font-bold">
+                        {user?.firstName
+                          ?.charAt(0)
+                          ?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                  </div>
 
-            </ul>
-          </div>
+                  <span className="hidden sm:inline font-medium">
+                    {user?.firstName}
+                  </span>
+                </div>
+
+                <ul className="mt-3 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-box w-56 z-50 border border-base-300">
+
+                  <li>
+                    <NavLink
+                      to="/dashboard"
+                      className="gap-2"
+                    >
+                      <LayoutDashboard size={16} />
+                      Dashboard
+                    </NavLink>
+                  </li>
+
+                  <li>
+                    <NavLink
+                      to="/settings"
+                      className="gap-2"
+                    >
+                      <Settings size={16} />
+                      Settings
+                    </NavLink>
+                  </li>
+
+                  {user?.role === 'admin' && (
+                    <li>
+                      <NavLink
+                        to="/admin"
+                        className="gap-2"
+                      >
+                        <ShieldCheck size={16} />
+                        Admin
+                      </NavLink>
+                    </li>
+                  )}
+
+                  <div className="divider my-1" />
+
+                  <li>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="text-error gap-2"
+                    >
+                      <LogOut size={16} />
+                      Logout
+                    </button>
+                  </li>
+
+                </ul>
+              </div>
+            </>
+          )}
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="container mx-auto p-4">
+
         <div className="flex flex-col gap-4 mb-6">
 
-          {/* Heading */}
           <div>
             <h1 className="text-3xl font-bold">
               Problems
@@ -243,10 +330,8 @@ function Homepage() {
             </p>
           </div>
 
-          {/* Filters */}
           <div className="flex flex-wrap gap-4">
 
-            {/* Status */}
             <select
               className="select select-bordered"
               value={filters.status}
@@ -270,7 +355,6 @@ function Homepage() {
               </option>
             </select>
 
-            {/* Difficulty */}
             <select
               className="select select-bordered"
               value={filters.difficulty}
@@ -298,7 +382,6 @@ function Homepage() {
               </option>
             </select>
 
-            {/* Tags */}
             <select
               className="select select-bordered"
               value={filters.tag}
@@ -323,7 +406,6 @@ function Homepage() {
               ))}
             </select>
 
-            {/* Reset */}
             <button
               type="button"
               className="btn btn-ghost"
@@ -331,15 +413,14 @@ function Homepage() {
             >
               Reset
             </button>
+
           </div>
         </div>
 
-        {/* Problem Count */}
         <div className="mb-4 text-sm text-base-content/60">
           Showing {filteredProblems.length} of {problems.length} problems
         </div>
 
-        {/* No Problems */}
         {filteredProblems.length === 0 ? (
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body items-center text-center">
@@ -363,8 +444,6 @@ function Homepage() {
             </div>
           </div>
         ) : (
-
-          /* Problems */
           <div className="grid gap-4">
             {filteredProblems.map((problem) => {
 
@@ -374,14 +453,15 @@ function Homepage() {
                   ? [problem.tags]
                   : [];
 
-              const isSolved = solvedProblemIds.has(
-                problem._id
-              );
+              const isSolved =
+                solvedProblemIds.has(
+                  problem._id
+                );
 
               return (
                 <div
                   key={problem._id}
-                  className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow"
+                  className="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-200 hover:-translate-y-0.5"
                 >
                   <div className="card-body">
 
@@ -390,16 +470,14 @@ function Homepage() {
                       <h2 className="card-title">
                         <NavLink
                           to={`/problem/${problem._id}`}
-                          className="hover:text-primary"
+                          className="hover:text-primary transition-colors"
                         >
                           {problem.title}
                         </NavLink>
                       </h2>
 
-                      {/* Solved Badge */}
-                      {isSolved && (
+                      {user && isSolved && (
                         <div className="badge badge-success gap-2">
-
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-4 w-4"
@@ -419,7 +497,6 @@ function Homepage() {
 
                     </div>
 
-                    {/* Difficulty + Tags */}
                     <div className="flex flex-wrap gap-2 mt-2">
 
                       <div
@@ -427,7 +504,9 @@ function Homepage() {
                           problem.difficulty
                         )}`}
                       >
-                        {capitalize(problem.difficulty)}
+                        {capitalize(
+                          problem.difficulty
+                        )}
                       </div>
 
                       {problemTags.map((tag) => (
@@ -447,6 +526,7 @@ function Homepage() {
             })}
           </div>
         )}
+
       </main>
     </div>
   );

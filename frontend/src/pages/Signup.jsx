@@ -1,28 +1,71 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, NavLink } from 'react-router';
+import { useEffect, useState } from 'react';
+import {useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
+import {useDispatch,useSelector} from 'react-redux';
+import {useNavigate,NavLink} from 'react-router';
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Code2,
+  Sparkles,
+  UserPlus,
+} from 'lucide-react';
+
 import { registerUser } from '../authSlice';
 
 const signupSchema = z.object({
-  firstName: z.string().min(3, "Minimum character should be 3"),
-  emailId: z.string().email("Invalid Email"),
-  password: z.string().min(8, "Password is too weak")
+  firstName: z
+    .string()
+    .min(3, 'First name must be at least 3 characters'),
+
+  lastName: z
+    .string()
+    .min(2, 'Last name must be at least 2 characters'),
+
+  emailId: z
+    .string()
+    .email('Please enter a valid email address'),
+
+  age: z
+    .coerce
+    .number()
+    .int('Age must be a whole number')
+    .min(13, 'Age must be at least 13')
+    .max(120, 'Please enter a valid age'),
+
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters'),
 });
 
 function Signup() {
   const [showPassword, setShowPassword] = useState(false);
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isAuthenticated, loading } = useSelector((state) => state.auth); // Removed error as it wasn't used
+
+  const {
+    isAuthenticated,
+    loading,
+    error,
+  } = useSelector((state) => state.auth);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(signupSchema) });
+  } = useForm({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      emailId: '',
+      age: '',
+      password: '',
+    },
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -30,105 +73,325 @@ function Signup() {
     }
   }, [isAuthenticated, navigate]);
 
-  const onSubmit = (data) => {
-    dispatch(registerUser(data));
+  const onSubmit = async (data) => {
+    try {
+      await dispatch(registerUser(data)).unwrap();
+      navigate('/');
+    } catch (err) {
+      console.error('Signup failed:', err);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-base-200"> {/* Added a light bg for contrast */}
-      <div className="card w-96 bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title justify-center text-3xl mb-6">Leetcode</h2> {/* Added mb-6 for spacing */}
-          <form onSubmit={handleSubmit(onSubmit)}>
-            {/* First Name Field */}
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">First Name</span>
-              </label>
-              <input
-                type="text"
-                placeholder="John"
-                className={`input input-bordered w-full ${errors.firstName ? 'input-error' : ''}`} 
-                {...register('firstName')}
+    <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
+
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 bg-base-100 rounded-3xl shadow-2xl overflow-hidden border border-base-300">
+
+        <div className="hidden lg:flex bg-primary text-primary-content p-12 flex-col justify-between">
+
+          <div>
+            <NavLink
+              to="/"
+              className="inline-flex items-center gap-3 text-2xl font-bold"
+            >
+              <div className="p-2 rounded-xl bg-primary-content/15">
+                <Code2 size={28} />
+              </div>
+
+              CodeNova
+            </NavLink>
+
+            <div className="mt-16 max-w-md">
+
+              <div className="flex items-center gap-2 text-sm font-semibold mb-4 opacity-90">
+                <Sparkles size={18} />
+                AI-powered coding practice
+              </div>
+
+              <h1 className="text-4xl font-bold leading-tight">
+                Your coding journey
+                <br />
+                starts here.
+              </h1>
+
+              <p className="mt-6 text-primary-content/80 text-lg leading-relaxed">
+                Solve real coding problems, learn from your
+                mistakes, track your progress, and get ready
+                for technical interviews.
+              </p>
+
+            </div>
+          </div>
+
+          <p className="text-sm text-primary-content/70">
+            Practice. Solve. Improve.
+          </p>
+
+        </div>
+
+        <div className="p-6 sm:p-10 lg:p-12">
+
+          <div className="mb-8">
+            <NavLink
+              to="/"
+              className="btn btn-ghost btn-sm gap-2"
+            >
+              <ArrowLeft size={18} />
+              Back to Problems
+            </NavLink>
+          </div>
+
+          <div className="lg:hidden mb-8">
+
+            <NavLink
+              to="/"
+              className="flex items-center gap-2 text-2xl font-bold"
+            >
+              <Code2
+                size={26}
+                className="text-primary"
               />
-              {errors.firstName && (
-                <span className="text-error text-sm mt-1">{errors.firstName.message}</span>
-              )}
+
+              CodeNova
+            </NavLink>
+
+            <p className="text-sm text-base-content/60 mt-2">
+              AI-powered coding practice platform
+            </p>
+
+          </div>
+
+          <div className="mb-8">
+
+            <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 mb-4">
+              <UserPlus
+                size={24}
+                className="text-primary"
+              />
             </div>
 
-            {/* Email Field */}
-            <div className="form-control mt-4">
+            <h2 className="text-3xl font-bold">
+              Create your account
+            </h2>
+
+            <p className="text-base-content/60 mt-2">
+              Start solving problems with CodeNova.
+            </p>
+
+          </div>
+
+          {error && (
+            <div className="alert alert-error mb-6">
+              <span>
+                {error}
+              </span>
+            </div>
+          )}
+
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-5"
+          >
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <div>
+                <label className="label">
+                  <span className="label-text font-medium">
+                    First Name
+                  </span>
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="Priyanshu"
+                  className={`input input-bordered w-full ${
+                    errors.firstName
+                      ? 'input-error'
+                      : ''
+                  }`}
+                  {...register('firstName')}
+                />
+
+                {errors.firstName && (
+                  <p className="text-error text-sm mt-2">
+                    {errors.firstName.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="label">
+                  <span className="label-text font-medium">
+                    Last Name
+                  </span>
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="Yadav"
+                  className={`input input-bordered w-full ${
+                    errors.lastName
+                      ? 'input-error'
+                      : ''
+                  }`}
+                  {...register('lastName')}
+                />
+
+                {errors.lastName && (
+                  <p className="text-error text-sm mt-2">
+                    {errors.lastName.message}
+                  </p>
+                )}
+              </div>
+
+            </div>
+
+            <div>
               <label className="label">
-                <span className="label-text">Email</span>
+                <span className="label-text font-medium">
+                  Email
+                </span>
               </label>
+
               <input
                 type="email"
-                placeholder="john@example.com"
-                className={`input input-bordered w-full ${errors.emailId ? 'input-error' : ''}`} // Ensure w-full for consistency
+                placeholder="you@example.com"
+                className={`input input-bordered w-full ${
+                  errors.emailId
+                    ? 'input-error'
+                    : ''
+                }`}
                 {...register('emailId')}
               />
+
               {errors.emailId && (
-                <span className="text-error text-sm mt-1">{errors.emailId.message}</span>
+                <p className="text-error text-sm mt-2">
+                  {errors.emailId.message}
+                </p>
               )}
             </div>
 
-            {/* Password Field with Toggle */}
-            <div className="form-control mt-4">
+            <div>
               <label className="label">
-                <span className="label-text">Password</span>
+                <span className="label-text font-medium">
+                  Age
+                </span>
               </label>
+
+              <input
+                type="number"
+                placeholder="21"
+                min="13"
+                max="120"
+                className={`input input-bordered w-full ${
+                  errors.age
+                    ? 'input-error'
+                    : ''
+                }`}
+                {...register('age')}
+              />
+
+              {errors.age && (
+                <p className="text-error text-sm mt-2">
+                  {errors.age.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="label">
+                <span className="label-text font-medium">
+                  Password
+                </span>
+              </label>
+
               <div className="relative">
+
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  // Added pr-10 (padding-right) to make space for the button
-                  className={`input input-bordered w-full pr-10 ${errors.password ? 'input-error' : ''}`}
+                  type={
+                    showPassword
+                      ? 'text'
+                      : 'password'
+                  }
+                  placeholder="Minimum 8 characters"
+                  className={`input input-bordered w-full pr-12 ${
+                    errors.password
+                      ? 'input-error'
+                      : ''
+                  }`}
                   {...register('password')}
                 />
+
                 <button
                   type="button"
-                  className="absolute top-1/2 right-3 transform -translate-y-1/2 text-gray-500 hover:text-gray-700" // Added transform for better centering, styling
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"} // Accessibility
+                  onClick={() =>
+                    setShowPassword(
+                      (prev) => !prev
+                    )
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-circle"
+                  aria-label={
+                    showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
+                    <EyeOff size={18} />
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
+                    <Eye size={18} />
                   )}
                 </button>
+
               </div>
+
               {errors.password && (
-                <span className="text-error text-sm mt-1">{errors.password.message}</span>
+                <p className="text-error text-sm mt-2">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
-            {/* Submit Button */}
-            <div className="form-control mt-8 flex justify-center"> 
-              <button
-                type="submit"
-                className={`btn btn-primary ${loading ? 'loading' : ''}`}
-                disabled={loading}
-              >
-                {loading ? 'Signing Up...' : 'Sign Up'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary w-full"
+            >
+              {loading ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" />
+                  Creating account...
+                </>
+              ) : (
+                <>
+                  <UserPlus size={18} />
+                  Create Account
+                </>
+              )}
+            </button>
+
           </form>
 
-          {/* Login Redirect */}
-          <div className="text-center mt-6"> {/* Increased mt for spacing */}
-            <span className="text-sm">
-              Already have an account?{' '}
-              <NavLink to="/login" className="link link-primary">
-                Login
-              </NavLink>
-            </span>
+          <div className="divider my-8">
+            OR
           </div>
+
+          <div className="text-center">
+
+            <p className="text-sm text-base-content/60">
+              Already have an account?
+            </p>
+
+            <NavLink
+              to="/login"
+              className="btn btn-outline btn-primary w-full mt-3"
+            >
+              Login to CodeNova
+            </NavLink>
+
+          </div>
+
         </div>
       </div>
     </div>

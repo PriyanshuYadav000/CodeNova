@@ -1,27 +1,59 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, NavLink } from 'react-router'; 
-import { loginUser } from "../authSlice";
 import { useEffect, useState } from 'react';
+import {useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
+import {
+  useDispatch,
+  useSelector
+} from 'react-redux';
+import {
+  useNavigate,
+  NavLink
+} from 'react-router';
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Code2,
+  Sparkles,
+  LogIn,
+} from 'lucide-react';
 
+import { loginUser } from '../authSlice';
 
 const loginSchema = z.object({
-  emailId: z.string().email("Invalid Email"),
-  password: z.string().min(8, "Password is too weak") 
+  emailId: z
+    .string()
+    .email('Please enter a valid email address'),
+
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters'),
 });
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isAuthenticated, loading, error } = useSelector((state) => state.auth);
+
+  const {
+    isAuthenticated,
+    loading,
+    error,
+  } = useSelector((state) => state.auth);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(loginSchema) }); // Using renamed schema
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      emailId: '',
+      password: '',
+    },
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -29,90 +61,240 @@ function Login() {
     }
   }, [isAuthenticated, navigate]);
 
-  const onSubmit = (data) => {
-    dispatch(loginUser(data));
+  const onSubmit = async (data) => {
+    try {
+      await dispatch(loginUser(data)).unwrap();
+      navigate('/');
+    } catch (err) {
+      console.error('Login failed:', err);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-base-200"> {/* Added bg for contrast */}
-      <div className="card w-96 bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title justify-center text-3xl mb-6">Leetcode</h2> {/* Added mb-6 */}
+    <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
 
-          
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="form-control"> {/* Removed mt-4 from first form-control for tighter spacing to title or global error */}
-              <label className="label"> {/* Removed mb-1, default spacing should be fine */}
-                <span className="label-text">Email</span>
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 bg-base-100 rounded-3xl shadow-2xl overflow-hidden border border-base-300">
+
+        {/* Left Branding */}
+        <div className="hidden lg:flex bg-primary text-primary-content p-12 flex-col justify-between">
+
+          <div>
+            <NavLink
+              to="/"
+              className="inline-flex items-center gap-3 text-2xl font-bold"
+            >
+              <div className="p-2 rounded-xl bg-primary-content/15">
+                <Code2 size={28} />
+              </div>
+
+              CodeNova
+            </NavLink>
+
+            <div className="mt-16 max-w-md">
+              <div className="flex items-center gap-2 text-sm font-semibold mb-4 opacity-90">
+                <Sparkles size={18} />
+                AI-powered coding practice
+              </div>
+
+              <h1 className="text-4xl font-bold leading-tight">
+                Sharpen your skills.
+                <br />
+                Build better code.
+              </h1>
+
+              <p className="mt-6 text-primary-content/80 text-lg leading-relaxed">
+                Practice coding problems, test your solutions,
+                track your progress, and prepare for your next
+                technical interview.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-sm text-primary-content/70">
+            Practice. Solve. Improve.
+          </p>
+        </div>
+
+        {/* Right Login */}
+        <div className="p-6 sm:p-10 lg:p-12">
+
+          {/* Back */}
+          <div className="mb-8">
+            <NavLink
+              to="/"
+              className="btn btn-ghost btn-sm gap-2"
+            >
+              <ArrowLeft size={18} />
+              Back to Problems
+            </NavLink>
+          </div>
+
+          {/* Mobile Brand */}
+          <div className="lg:hidden mb-8">
+            <NavLink
+              to="/"
+              className="flex items-center gap-2 text-2xl font-bold"
+            >
+              <Code2 size={26} className="text-primary" />
+              CodeNova
+            </NavLink>
+
+            <p className="text-sm text-base-content/60 mt-2">
+              AI-powered coding practice platform
+            </p>
+          </div>
+
+          {/* Heading */}
+          <div className="mb-8">
+            <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 mb-4">
+              <LogIn
+                size={24}
+                className="text-primary"
+              />
+            </div>
+
+            <h2 className="text-3xl font-bold">
+              Welcome back
+            </h2>
+
+            <p className="text-base-content/60 mt-2">
+              Sign in to continue your coding journey.
+            </p>
+          </div>
+
+          {/* Server Error */}
+          {error && (
+            <div className="alert alert-error mb-6">
+              <span>
+                {error}
+              </span>
+            </div>
+          )}
+
+          {/* Form */}
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-5"
+          >
+
+            {/* Email */}
+            <div>
+              <label className="label">
+                <span className="label-text font-medium">
+                  Email
+                </span>
               </label>
+
               <input
                 type="email"
-                placeholder="john@example.com"
-                className={`input input-bordered w-full ${errors.emailId ? 'input-error' : ''}`} 
+                placeholder="you@example.com"
+                className={`input input-bordered w-full ${
+                  errors.emailId
+                    ? 'input-error'
+                    : ''
+                }`}
                 {...register('emailId')}
               />
+
               {errors.emailId && (
-                <span className="text-error text-sm mt-1">{errors.emailId.message}</span>
+                <p className="text-error text-sm mt-2">
+                  {errors.emailId.message}
+                </p>
               )}
             </div>
 
-            <div className="form-control mt-4">
+            {/* Password */}
+            <div>
               <label className="label">
-                <span className="label-text">Password</span>
+                <span className="label-text font-medium">
+                  Password
+                </span>
               </label>
+
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  className={`input input-bordered w-full pr-10 ${errors.password ? 'input-error' : ''}`}
+                  type={
+                    showPassword
+                      ? 'text'
+                      : 'password'
+                  }
+                  placeholder="Enter your password"
+                  className={`input input-bordered w-full pr-12 ${
+                    errors.password
+                      ? 'input-error'
+                      : ''
+                  }`}
                   {...register('password')}
                 />
+
                 <button
                   type="button"
-                  className="absolute top-1/2 right-3 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() =>
+                    setShowPassword(
+                      (prev) => !prev
+                    )
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-circle"
+                  aria-label={
+                    showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
+                    <EyeOff size={18} />
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
+                    <Eye size={18} />
                   )}
                 </button>
               </div>
+
               {errors.password && (
-                <span className="text-error text-sm mt-1">{errors.password.message}</span>
+                <p className="text-error text-sm mt-2">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
-            <div className="form-control mt-8 flex justify-center">
-              <button
-                type="submit"
-                className={`btn btn-primary ${loading ? 'loading btn-disabled' : ''}`} // Added btn-disabled for better UX with loading
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="loading loading-spinner"></span>
-                    Logging in...
-                  </>
-                ) : 'Login'}
-              </button>
-            </div>
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary w-full"
+            >
+              {loading ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <LogIn size={18} />
+                  Login
+                </>
+              )}
+            </button>
+
           </form>
-          <div className="text-center mt-6">
-            <span className="text-sm">
-              Don't have an account?{' '} {/* Adjusted text slightly */}
-              <NavLink to="/signup" className="link link-primary">
-                Sign Up
-              </NavLink>
-            </span>
+
+          {/* Signup */}
+          <div className="divider my-8">
+            OR
           </div>
+
+          <div className="text-center">
+            <p className="text-sm text-base-content/60">
+              Don't have an account?
+            </p>
+
+            <NavLink
+              to="/signup"
+              className="btn btn-outline btn-primary w-full mt-3"
+            >
+              Create your CodeNova account
+            </NavLink>
+          </div>
+
         </div>
       </div>
     </div>

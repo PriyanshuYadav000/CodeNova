@@ -1,6 +1,5 @@
 const AppError = require("../utils/AppError");
 const redisClient = require("../config/redis");
-
 const redisKey = require("../utils/redisKey");
 
 const getPositiveInteger = (value, fallback) => {
@@ -65,10 +64,6 @@ const sanitizeIp = (ip) => {
 };
 
 const getIdentity = (req, keyType) => {
-  /*
-   * Protected routes:
-   * use authenticated user ID.
-   */
   if (keyType === "user") {
     if (!req.result || !req.result.id) {
       throw new AppError(
@@ -81,10 +76,6 @@ const getIdentity = (req, keyType) => {
     return `user:${req.result.id}`;
   }
 
-  /*
-   * Admin protected routes:
-   * use authenticated admin ID.
-   */
   if (keyType === "admin") {
     if (!req.result || !req.result.id) {
       throw new AppError(
@@ -97,13 +88,6 @@ const getIdentity = (req, keyType) => {
     return `admin:${req.result.id}`;
   }
 
-  /*
-   * Public routes:
-   * use Express's resolved request IP.
-   *
-   * We do not trust X-User-ID or other client-provided
-   * identity headers.
-   */
   return `ip:${sanitizeIp(req.ip)}`;
 };
 
@@ -118,26 +102,19 @@ const rateLimiter = ({
   }
 
   return async (req, res, next) => {
-    const windowId = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS);
+    const windowId = Math.floor(
+      Date.now() / RATE_LIMIT_WINDOW_MS
+    );
 
     let identity;
 
     try {
       identity = getIdentity(req, keyType);
 
-      const rateLimitKey = redisKey(`codenova:ratelimit:${name}:${identity}:${windowId}`);
+      const rateLimitKey = redisKey(
+        `codenova:ratelimit:${name}:${identity}:${windowId}`
+      );
 
-      /*
-       * Atomic Redis Lua script:
-       *
-       * 1. Increment request count
-       * 2. Set expiry only on the first request
-       * 3. Return current count
-       * 4. Return remaining TTL
-       *
-       * This works across multiple CodeNova backend instances
-       * because Redis is the shared source of truth.
-       */
       const result = await redisClient.eval(
         `
         local current = redis.call("INCR", KEYS[1])
@@ -171,7 +148,10 @@ const rateLimiter = ({
           retryAfterSeconds,
         });
 
-        res.setHeader("Retry-After", String(retryAfterSeconds));
+        res.setHeader(
+          "Retry-After",
+          String(retryAfterSeconds)
+        );
 
         return next(
           new AppError(
@@ -182,46 +162,45 @@ const rateLimiter = ({
         );
       }
 
-      /*
-       * Useful standard rate-limit headers.
-       */
-      res.setHeader("X-RateLimit-Limit", String(max));
+      res.setHeader(
+        "X-RateLimit-Limit",
+        String(max)
+      );
 
       res.setHeader(
         "X-RateLimit-Remaining",
-        String(Math.max(0, max - currentCount))
+        String(
+          Math.max(
+            0,
+            max - currentCount
+          )
+        )
       );
 
       res.setHeader(
         "X-RateLimit-Reset",
         String(
-          Math.ceil((Date.now() + Math.max(0, ttlMs)) / 1000)
+          Math.ceil(
+            (Date.now() + Math.max(0, ttlMs)) /
+              1000
+          )
         )
       );
 
       next();
     } catch (error) {
-      /*
-       * AppError means the request itself is invalid.
-       */
       if (error instanceof AppError) {
         return next(error);
       }
 
-      /*
-       * Redis outage policy:
-       *
-       * failClosed=true
-       *   → protected/abuse-sensitive endpoints return 503
-       *
-       * failClosed=false
-       *   → normal endpoints continue operating
-       */
-      console.error("Rate limiter Redis error:", {
-        limiter: name,
-        identity: identity || "unknown",
-        message: error.message,
-      });
+      console.error(
+        "Rate limiter Redis error:",
+        {
+          limiter: name,
+          identity: identity || "unknown",
+          message: error.message,
+        }
+      );
 
       if (failClosed) {
         return next(
@@ -280,20 +259,27 @@ const generalRateLimiter = rateLimiter({
   failClosed: false,
 });
 
+const publicRateLimiter = rateLimiter({
+  name: "public",
+  max: GENERAL_MAX,
+  keyType: "ip",
+  failClosed: false,
+});
+
 const adminWriteRateLimiter = rateLimiter({
   name: "admin-write",
   max: ADMIN_WRITE_MAX,
   keyType: "admin",
-  failClosed: false,
+  failClosed: true,
 });
 
 module.exports = {
-  rateLimiter,
   loginRateLimiter,
   registerRateLimiter,
   adminRegisterRateLimiter,
   codeRunRateLimiter,
   codeSubmitRateLimiter,
   generalRateLimiter,
+  publicRateLimiter,
   adminWriteRateLimiter,
 };
