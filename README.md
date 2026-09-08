@@ -1,55 +1,16 @@
-# 🧠 Engineering Skills & Concepts
+# CodeNova 🚀
 
-CodeNova is being developed not only as a full-stack application, but as a **production-oriented software system**. The project involves backend engineering, database architecture, system design, distributed systems, security, DevOps, and eventually AI engineering.
+**CodeNova** is a full-stack AI-powered coding and interview preparation platform designed to provide a complete environment for practicing programming problems, executing code, tracking progress, managing profiles, and preparing for technical interviews.
 
-## 💻 Software Engineering
-
-* JavaScript
-* Node.js
-* Express.js
-* React
-* REST API development
-* MVC architecture
-* Modular backend architecture
-* Middleware architecture
-* Authentication & Authorization
-* Role-Based Access Control (RBAC)
-* Error handling
-* API design
-* API contract preservation
-* Environment-based configuration
-* Git & GitHub
-* Incremental refactoring
-* Legacy system migration
+The project is being developed with a strong focus on **production-oriented software engineering**, including scalable backend architecture, secure authentication, PostgreSQL database design, Redis caching, API validation, automated testing, and cloud deployment.
 
 ---
 
-## 🏗️ System Design
+## 🌐 Project Overview
 
-CodeNova is being designed with production scalability in mind.
+CodeNova brings together coding practice, code execution, progress tracking, user management, and administrative functionality in one platform.
 
-Key system-design concepts:
-
-* Monolithic backend architecture
-* Modular architecture
-* Service separation
-* API architecture
-* Database architecture
-* Authentication architecture
-* Caching architecture
-* Code execution architecture
-* Queue-based processing
-* Asynchronous workloads
-* Horizontal scalability
-* Fault tolerance
-* Reliability
-* High availability
-* Database consistency
-* Data integrity
-* Observability
-* Security architecture
-
-### Current conceptual architecture
+### Core platform flow
 
 ```text
                     CodeNova
@@ -57,6 +18,8 @@ Key system-design concepts:
              ┌─────────┴─────────┐
              │                   │
           Frontend             Backend
+             │                   │
+        React + Vite       Node.js + Express
              │                   │
              │          ┌────────┼────────┐
              │          │        │        │
@@ -66,9 +29,9 @@ Key system-design concepts:
              │                   │
              │          ┌────────┴────────┐
              │          │                 │
-             │      PostgreSQL          Redis
+             │     PostgreSQL           Redis
              │          │
-             │       Prisma
+             │       Prisma 7
              │
              └────────────────────────────
                          │
@@ -77,173 +40,546 @@ Key system-design concepts:
                   Code Execution
 ```
 
-The architecture is intentionally being built so that components such as code execution, AI services, queues, and other workloads can be separated as the platform grows.
+---
+
+# ✨ Features
+
+## 👤 Authentication & Users
+
+* User registration and login
+* JWT-based authentication
+* Authentication using secure `httpOnly` cookies
+* Password hashing with bcrypt
+* Logout functionality
+* Authenticated user verification
+* Protected routes
+* Role-based authorization
+* Admin access control
+* Redis-backed token blacklist
+
+## 💻 Coding Platform
+
+* Problems listing
+* Problem details
+* Search functionality
+* Problem filtering
+* Monaco code editor
+* Multiple programming languages
+* Run Code
+* Submit Code
+* Judge0-based code execution
+* Compilation and runtime error handling
+* Submission status tracking
+* Solved problem tracking
+
+## 📊 Dashboard & Progress
+
+* User dashboard
+* Problems solved tracking
+* Submission activity
+* Daily activity tracking
+* Progress information
+* Coding statistics
+* User performance data
+
+## 👤 Profile
+
+* User profile
+* Profile image upload
+* Profile information
+* Activity information
+* Progress tracking
+
+## ⚙️ Settings
+
+* User settings
+* Notification preferences
+* Application preferences
+* Reliable settings updates
+
+## 🛠️ Admin
+
+* Admin interface
+* Problem management
+* Problem creation
+* Duplicate problem prevention
+* Administrative authorization
+
+## 📚 API & Backend
+
+* REST API architecture
+* Swagger/OpenAPI documentation
+* Request validation
+* Centralized error handling
+* Security middleware
+* Rate limiting
+* Redis caching
+* PostgreSQL persistence
+* Database optimization
 
 ---
 
-# 🗄️ Database Engineering
+# 🧱 Technology Stack
 
-### PostgreSQL
+## Frontend
 
-* Relational database design
-* Schema design
-* Normalization
+| Technology      | Purpose                |
+| --------------- | ---------------------- |
+| React           | UI development         |
+| Vite            | Frontend build tooling |
+| Redux Toolkit   | State management       |
+| React Router    | Client-side routing    |
+| Tailwind CSS    | Styling                |
+| DaisyUI         | UI components          |
+| Monaco Editor   | Code editor            |
+| Axios           | API communication      |
+| React Hook Form | Form management        |
+| Zod             | Validation             |
+
+## Backend
+
+| Technology      | Purpose                     |
+| --------------- | --------------------------- |
+| Node.js         | Runtime                     |
+| Express.js      | Backend framework           |
+| CommonJS        | Module system               |
+| Prisma 7        | ORM                         |
+| PostgreSQL      | Relational database         |
+| Redis           | Cache / distributed state   |
+| JWT             | Authentication              |
+| bcrypt          | Password hashing            |
+| Axios           | External API communication  |
+| Helmet          | Security headers            |
+| CORS            | Cross-origin access control |
+| Swagger/OpenAPI | API documentation           |
+| Jest            | Automated testing           |
+| Supertest       | API testing                 |
+
+## External Services
+
+| Service            | Purpose                      |
+| ------------------ | ---------------------------- |
+| Judge0             | Remote code execution        |
+| RapidAPI           | Judge0 API access            |
+| Redis Cloud        | Managed Redis infrastructure |
+| Managed PostgreSQL | Production database          |
+| Vercel             | Frontend hosting             |
+| Render             | Backend hosting              |
+
+---
+
+# 🏗️ Backend Architecture
+
+The backend follows a modular architecture designed to keep authentication, problems, submissions, configuration, middleware, database access, and external integrations separated.
+
+```text
+backend/
+│
+├── src/
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── routes/
+│   ├── services/
+│   ├── utils/
+│   ├── docs/
+│   ├── app.js
+│   └── index.js
+│
+├── prisma/
+│   ├── schema.prisma
+│   └── migrations/
+│
+└── package.json
+```
+
+The application startup process is designed to:
+
+```text
+Load Environment
+       ↓
+Validate Configuration
+       ↓
+Initialize PostgreSQL
+       ↓
+Initialize Redis
+       ↓
+Start Express Server
+       ↓
+Accept Requests
+```
+
+---
+
+# 🗄️ Database Architecture
+
+CodeNova uses:
+
+```text
+PostgreSQL
+    ↓
+Prisma 7
+    ↓
+Application
+```
+
+The database layer uses relational concepts including:
+
 * Primary keys
 * Foreign keys
 * UUIDs
 * Relationships
 * Constraints
 * Transactions
-* Upsert operations
+* Upserts
 * Database migrations
-* Data integrity
+* Normalized relational data
 
-### Prisma
-
-* Prisma ORM
-* Prisma schema
-* Prisma Client
-* Prisma migrations
-* Relational queries
-* Transactions
-* Nested relational operations
-
-### MongoDB → PostgreSQL Migration
-
-A major engineering task in CodeNova is migrating the existing database layer:
+The project previously used MongoDB/Mongoose and the database layer has been migrated toward PostgreSQL + Prisma.
 
 ```text
 MongoDB + Mongoose
         ↓
-PostgreSQL + Prisma
+PostgreSQL + Prisma 7
 ```
 
-This involves:
-
-* Schema redesign
-* NoSQL → SQL migration
-* Data normalization
-* Relationship modeling
-* ORM migration
-* Backward compatibility
-* Incremental refactoring
-* Data integrity verification
-* Dependency cleanup
+This migration involved schema redesign, relationship modeling, ORM changes, dependency cleanup, and preservation of application behavior.
 
 ---
 
-# ⚡ Redis & Caching
+# ⚡ Redis Architecture
 
-Redis is part of the CodeNova backend infrastructure.
+Redis is integrated into the backend for fast-access and distributed state use cases.
 
-Current/planned uses include:
+Current uses include:
 
 * Token blacklist
-* Authentication state
-* Fast-access temporary data
-* Caching
-* Distributed state
+* Authentication-related state
+* Application caching
+* Rate limiting
+* Temporary data
+* Distributed state management
 
-This introduces distributed-system concepts such as:
+Conceptually:
 
-* In-memory data stores
-* TTL
-* Cache invalidation
-* Distributed state
-* Connection management
-* Failure handling
+```text
+Application
+    │
+    ├── PostgreSQL → persistent data
+    │
+    └── Redis → cache / temporary / distributed state
+```
+
+Redis connectivity and failure handling are part of backend startup and runtime behavior.
 
 ---
 
-# 🧑‍💻 Online Judge & Code Execution
+# 🧑‍💻 Code Execution Architecture
 
-CodeNova integrates with **Judge0** for code execution.
-
-Engineering concepts involved:
-
-* Remote code execution
-* Sandboxed execution
-* Test-case execution
-* Execution limits
-* Runtime limits
-* Memory limits
-* Compilation errors
-* Runtime errors
-* Submission state management
-* Execution-result processing
-* External service integration
-* Failure handling
-
-The long-term architecture can evolve toward:
+CodeNova integrates Judge0 for executing submitted programs.
 
 ```text
 User
  ↓
-API
+Frontend
  ↓
-Submission
+Submission API
  ↓
-Job Queue
+Judge0 / RapidAPI
  ↓
-Execution Worker
+Code Execution
  ↓
-Judge0 / Sandbox
+Execution Result
  ↓
-Result
+Backend
  ↓
 Database
  ↓
-User
+Frontend
+```
+
+The platform handles execution-related outcomes such as:
+
+* Successful execution
+* Compilation errors
+* Runtime errors
+* Execution status
+* Test-case results
+* Submission tracking
+
+A future evolution can introduce background workers and queues:
+
+```text
+Submission
+    ↓
+Job Queue
+    ↓
+Execution Worker
+    ↓
+Judge0
+    ↓
+Result
 ```
 
 ---
 
-# 🔐 Security Engineering
+# 🔐 Security
 
-Current security concepts:
+Security is treated as a core part of the application architecture.
+
+Current security measures include:
 
 * JWT authentication
+* `httpOnly` authentication cookies
 * bcrypt password hashing
 * Authentication middleware
-* Admin authorization
 * Role-based access control
-* Redis token blacklist
-* Environment variables
-* Secret management
-* Protected API routes
-
-Production security roadmap:
-
-* Input validation
+* Admin authorization
 * Request validation
-* Rate limiting
-* CORS hardening
-* Security headers
-* API abuse prevention
-* Secure cookies/tokens
-* Database security
-* Secret rotation
-* Audit logging
-* Vulnerability scanning
+* Redis-backed rate limiting
+* Redis token blacklist
+* CORS configuration
+* Helmet security headers
+* Environment-based secrets
+* Centralized error handling
+
+Secrets are intentionally kept outside source control.
+
+> **Never commit `.env` files or API keys to the repository.**
 
 ---
 
-# 🐳 Containerization & Docker — Production Roadmap
+# ✅ Testing & Quality
 
-Docker is part of the planned production infrastructure.
+The backend includes an automated Jest/Supertest testing setup.
 
-Planned technologies:
+Testing focuses on areas such as:
 
-* Docker
-* Dockerfiles
-* Docker Compose
-* Containerized backend
-* Containerized frontend
-* Containerized PostgreSQL for development
-* Containerized Redis for development
-* Environment-specific configuration
+* Authentication
+* User APIs
+* Problem APIs
+* Submission APIs
+* Validation
+* Error handling
+* Security behavior
+* Regression prevention
 
-Target development architecture:
+Production quality will continue to expand toward:
+
+```text
+Unit Tests
+    ↓
+Integration Tests
+    ↓
+End-to-End Tests
+    ↓
+Performance Testing
+    ↓
+Security Testing
+```
+
+---
+
+# 📖 API Documentation
+
+CodeNova provides API documentation using Swagger/OpenAPI.
+
+The API documentation is intended to provide:
+
+* Available endpoints
+* Request structures
+* Response structures
+* Authentication information
+* API contract visibility
+
+This makes backend APIs easier to test, understand, and maintain.
+
+---
+
+# ☁️ Production Hosting
+
+CodeNova is currently entering its **production hosting phase**.
+
+The planned deployment architecture is:
+
+```text
+                         GitHub
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+              ▼                         ▼
+          Frontend                  Backend
+           Vercel                    Render
+              │                         │
+              │             ┌───────────┼───────────┐
+              │             │           │           │
+              │       PostgreSQL      Redis       Judge0
+              │             │           │           │
+              └─────────────┴───────────┴───────────┘
+```
+
+### Current production target
+
+**Frontend**
+
+```text
+Vercel
+```
+
+**Backend**
+
+```text
+Render Web Service
+```
+
+**Database**
+
+```text
+Managed PostgreSQL
+```
+
+**Redis**
+
+```text
+Redis Cloud
+```
+
+**Code Execution**
+
+```text
+Judge0 via RapidAPI
+```
+
+---
+
+# 🚀 Production Readiness
+
+The project is being prepared for deployment without unnecessarily changing the existing application architecture.
+
+Production readiness includes verification of:
+
+* Environment variables
+* Production database configuration
+* Prisma generation
+* Prisma migrations
+* Render port handling
+* Server host binding
+* CORS
+* Cross-origin authentication
+* Secure cookies
+* Frontend API configuration
+* Redis connectivity
+* Judge0 connectivity
+* Health checks
+* Production builds
+* Deployment configuration
+
+Health endpoint:
+
+```text
+GET /health
+```
+
+Expected purpose:
+
+```text
+Verify that the backend service is running
+and reachable by the deployment platform.
+```
+
+---
+
+# 🔄 Current Deployment Workflow
+
+The current deployment phase follows this sequence:
+
+```text
+Inspect Existing Application
+        ↓
+Verify Production Configuration
+        ↓
+Fix Deployment Blockers
+        ↓
+Deploy Backend → Render
+        ↓
+Verify Backend
+        ↓
+Deploy Frontend → Vercel
+        ↓
+Connect Frontend + Backend
+        ↓
+Verify Authentication Cookies
+        ↓
+Verify PostgreSQL
+        ↓
+Verify Redis
+        ↓
+Verify Judge0
+        ↓
+Run Full Production Test
+```
+
+Docker and CI/CD are intentionally **not part of the current deployment step**.
+
+---
+
+# 🧪 Production Verification Checklist
+
+After deployment, the complete application should be tested end-to-end.
+
+### Frontend
+
+* [ ] Frontend loads
+* [ ] Routing works
+* [ ] Login page works
+* [ ] Signup page works
+* [ ] Problems page works
+* [ ] Search works
+* [ ] Filters work
+* [ ] Coding page works
+* [ ] Dashboard works
+* [ ] Profile works
+* [ ] Profile image works
+* [ ] Settings work
+* [ ] Admin UI works
+
+### Backend
+
+* [ ] Health endpoint works
+* [ ] Registration works
+* [ ] Login works
+* [ ] Logout works
+* [ ] Authenticated-user check works
+* [ ] Problem listing works
+* [ ] Problem details work
+* [ ] Search/filter APIs work
+* [ ] Run Code works
+* [ ] Submit Code works
+* [ ] Solved status updates correctly
+* [ ] Dashboard APIs work
+* [ ] Profile APIs work
+* [ ] Settings APIs work
+* [ ] Admin APIs work
+
+### Infrastructure
+
+* [ ] PostgreSQL connection works
+* [ ] Prisma production migrations succeed
+* [ ] Redis connection works
+* [ ] Redis caching works
+* [ ] Rate limiting works
+* [ ] Judge0 integration works
+* [ ] CORS works
+* [ ] `httpOnly` authentication cookies work
+* [ ] Production frontend/backend communication works
+
+---
+
+# 🐳 Docker — Future Phase
+
+Docker is planned, but is intentionally **not yet part of the current deployment**.
+
+Future development infrastructure may include:
 
 ```text
 Docker Compose
@@ -254,56 +590,22 @@ Docker Compose
 └── Redis
 ```
 
-For production, services can eventually be deployed independently rather than relying on a single Compose environment.
+The future Docker phase will focus on:
 
-> **Status:** Planned / production infrastructure — not yet marked as completed CodeNova implementation.
-
----
-
-# ☁️ Cloud & Infrastructure
-
-The production-grade roadmap can use cloud infrastructure for:
-
-* Application hosting
-* Managed PostgreSQL
-* Managed Redis
-* Object storage
-* Networking
-* Load balancing
-* Monitoring
-* Auto-scaling
-* Secrets management
-* CI/CD
-
-Potential cloud technologies:
-
-* Microsoft Azure
-* AWS
-* Cloud-managed PostgreSQL
-* Cloud-managed Redis
-* Object Storage
-
-> Cloud technologies should be added to the "Implemented" section only after they are actually integrated into CodeNova.
+* Dockerfiles
+* Containerization
+* Docker Compose
+* Environment configuration
+* Local infrastructure consistency
+* Container-based deployment
 
 ---
 
-# 🔄 DevOps & CI/CD — Production Roadmap
+# 🔄 CI/CD — Future Phase
 
-Planned DevOps capabilities:
+After the first successful deployment, CI/CD can be introduced.
 
-* CI/CD
-* Automated testing
-* Build pipelines
-* Docker image builds
-* Deployment automation
-* Environment management
-* Production deployments
-* Rollbacks
-* Health checks
-* Database migration pipelines
-* Secrets management
-
-Future pipeline:
+Planned pipeline:
 
 ```text
 Git Push
@@ -312,122 +614,33 @@ CI
    ↓
 Lint
    ↓
-Unit Tests
-   ↓
-Integration Tests
+Tests
    ↓
 Build
-   ↓
-Docker Image
    ↓
 Deploy
    ↓
 Health Check
    ↓
-Monitoring
+Production
 ```
+
+Potential future capabilities include:
+
+* Automated testing
+* Automated builds
+* Deployment automation
+* Database migration pipelines
+* Environment management
+* Secret management
+* Rollbacks
+* Deployment health checks
 
 ---
 
-# 📊 Testing & Quality Engineering
+# 📈 Scalability Roadmap
 
-Planned production testing strategy:
-
-### Unit Testing
-
-* Controllers
-* Services
-* Utilities
-* Business logic
-
-### Integration Testing
-
-* API + PostgreSQL
-* API + Redis
-* Authentication
-* Problem workflows
-* Submission workflows
-
-### End-to-End Testing
-
-```text
-User
- ↓
-Frontend
- ↓
-API
- ↓
-Database
- ↓
-Judge0
- ↓
-Submission Result
-```
-
-Additional quality practices:
-
-* API testing
-* Regression testing
-* Error-case testing
-* Load testing
-* Performance testing
-* Security testing
-
----
-
-# 📈 Observability & Monitoring
-
-Production CodeNova should eventually include:
-
-* Structured logging
-* Application metrics
-* Request tracing
-* Error tracking
-* Health checks
-* Database monitoring
-* Redis monitoring
-* Judge0 monitoring
-* Performance monitoring
-* Alerting
-
-The goal is to answer:
-
-```text
-Is the system healthy?
-What failed?
-Where did it fail?
-Why did it fail?
-How many users are affected?
-How quickly can we recover?
-```
-
----
-
-# 🚀 Scalability & Distributed Systems
-
-As CodeNova grows, the system will need to handle:
-
-* More users
-* More submissions
-* Concurrent code execution
-* AI requests
-* Background jobs
-* Large amounts of user activity
-
-Relevant concepts:
-
-* Horizontal scaling
-* Load balancing
-* Caching
-* Queues
-* Workers
-* Asynchronous processing
-* Connection pooling
-* Rate limiting
-* Backpressure
-* Retry mechanisms
-* Idempotency
-* Fault tolerance
+The current architecture is intentionally structured so that major workloads can be separated as CodeNova grows.
 
 Potential future architecture:
 
@@ -442,7 +655,7 @@ Potential future architecture:
                           │
                     PostgreSQL
                           │
-                       Redis
+                        Redis
                           │
                      Job Queue
                           │
@@ -455,18 +668,30 @@ Potential future architecture:
                     Code Execution
 ```
 
+Relevant scalability concepts include:
+
+* Horizontal scaling
+* Load balancing
+* Caching
+* Queues
+* Workers
+* Asynchronous processing
+* Connection pooling
+* Rate limiting
+* Backpressure
+* Retry mechanisms
+* Idempotency
+* Fault tolerance
+
 ---
 
-# 🤖 AI Engineering — Future
+# 🤖 AI Roadmap
 
-Once the core platform is production-stable, CodeNova will introduce AI capabilities.
+AI functionality is planned after the core platform becomes stable in production.
 
-Planned AI engineering areas:
+Potential AI capabilities include:
 
 * LLM integration
-* Prompt engineering
-* AI service architecture
-* Context management
 * AI code analysis
 * AI debugging
 * AI code review
@@ -477,13 +702,30 @@ Planned AI engineering areas:
 * AI agents
 * AI interviewer
 * Skill-gap analysis
+* Career recommendations
 * Job matching
+
+The AI architecture can eventually become a dedicated service:
+
+```text
+CodeNova Platform
+       │
+       ├── Coding
+       ├── Dashboard
+       ├── Profiles
+       └── AI Services
+              │
+              ├── Code Analysis
+              ├── Debugging
+              ├── Interviewer
+              └── Recommendations
+```
 
 ---
 
-# 🧠 Data & Intelligence Layer — Future
+# 🧠 Future Intelligence Layer
 
-CodeNova will eventually collect structured signals from:
+CodeNova can eventually use structured user activity such as:
 
 ```text
 Problems Solved
@@ -499,47 +741,47 @@ Skills
 Career Goals
 ```
 
-These signals can power:
+These signals can support:
 
 * Skill profiles
 * Personalized recommendations
 * Learning paths
 * Weak-topic detection
-* Difficulty adaptation
+* Adaptive difficulty
 * Interview readiness
 * Career recommendations
 
 ---
 
-# 🏢 Production Engineering Principles
+# 🏢 Engineering Principles
 
-CodeNova is being developed around these engineering principles:
+CodeNova is being developed around the following principles:
 
-### 1. Scalability
+### Scalability
 
-Design components so the system can grow without requiring a complete rewrite.
+Build components that can grow without requiring unnecessary rewrites.
 
-### 2. Reliability
+### Reliability
 
-Failures in one component should not unnecessarily bring down the entire platform.
+Failures in one component should not unnecessarily bring down the entire system.
 
-### 3. Security
+### Security
 
-User data, credentials, code execution, and infrastructure must be protected.
+Credentials, user data, authentication tokens, submitted code, and infrastructure must be protected.
 
-### 4. Maintainability
+### Maintainability
 
 Code should remain modular, understandable, testable, and easy to extend.
 
-### 5. Observability
+### Observability
 
-Production systems should provide enough logs, metrics, and traces to diagnose problems.
+Production systems should provide enough information to understand failures and system health.
 
-### 6. Backward Compatibility
+### Backward Compatibility
 
-Database and infrastructure changes should avoid unnecessary breaking changes to existing APIs.
+Infrastructure and database changes should avoid unnecessary API-breaking changes.
 
-### 7. Incremental Development
+### Incremental Development
 
 ```text
 Build
@@ -553,53 +795,60 @@ Measure
 Improve
 ```
 
-### 8. Production First
+### Production First
 
-The goal is not:
+The goal is not simply:
 
-> "Make it work."
+> **"Make it work."**
 
 The goal is:
 
-> **"Make it reliable, secure, scalable, maintainable, observable, and ready for real users."**
+> **"Make it reliable, secure, maintainable, observable, scalable, and ready for real users."**
 
 ---
 
-# 🛠️ Technology & Skill Matrix
+# 🛠️ Technology & Project Status
 
-| Area               | Technology / Skill    | Status         |
-| ------------------ | --------------------- | -------------- |
-| Programming        | JavaScript            | ✅              |
-| Backend            | Node.js               | ✅              |
-| Backend            | Express.js            | ✅              |
-| Frontend           | React                 | ✅              |
-| API                | REST APIs             | ✅              |
-| Authentication     | JWT                   | ✅              |
-| Security           | bcrypt                | ✅              |
-| Authorization      | RBAC / Middleware     | ✅              |
-| Database           | MongoDB               | 🔄 Legacy      |
-| Database           | PostgreSQL            | ✅              |
-| ORM                | Prisma                | ✅              |
-| Database Migration | MongoDB → PostgreSQL  | 🔄 In Progress |
-| Caching            | Redis                 | 🔄 In Progress |
-| Code Execution     | Judge0                | ✅              |
-| Git                | Git/GitHub            | ✅              |
-| System Design      | Backend architecture  | ✅              |
-| System Design      | Scalability planning  | 🔄             |
-| System Design      | Distributed systems   | 🔄             |
-| Docker             | Containerization      | 🔜 Planned     |
-| Docker Compose     | Local infrastructure  | 🔜 Planned     |
-| CI/CD              | Automated deployment  | 🔜 Planned     |
-| Cloud              | Cloud deployment      | 🔜 Planned     |
-| Testing            | Unit testing          | 🔜             |
-| Testing            | Integration testing   | 🔜             |
-| Testing            | E2E testing           | 🔜             |
-| Observability      | Logging / Metrics     | 🔜             |
-| Monitoring         | Production monitoring | 🔜             |
-| AI                 | LLM integration       | 🔮 Future      |
-| AI                 | AI coding assistant   | 🔮 Future      |
-| AI                 | AI interviewer        | 🔮 Future      |
-| AI                 | Career intelligence   | 🔮 Future      |
+| Area                  | Technology / Feature  | Status              |
+| --------------------- | --------------------- | ------------------- |
+| Programming           | JavaScript            | ✅                   |
+| Backend               | Node.js               | ✅                   |
+| Backend               | Express.js            | ✅                   |
+| Frontend              | React                 | ✅                   |
+| Build Tool            | Vite                  | ✅                   |
+| State Management      | Redux Toolkit         | ✅                   |
+| Routing               | React Router          | ✅                   |
+| Styling               | Tailwind CSS          | ✅                   |
+| UI                    | DaisyUI               | ✅                   |
+| Code Editor           | Monaco Editor         | ✅                   |
+| API                   | REST APIs             | ✅                   |
+| Authentication        | JWT                   | ✅                   |
+| Password Security     | bcrypt                | ✅                   |
+| Authorization         | RBAC                  | ✅                   |
+| Database              | PostgreSQL            | ✅                   |
+| ORM                   | Prisma 7              | ✅                   |
+| Database Migration    | MongoDB → PostgreSQL  | ✅                   |
+| Caching               | Redis                 | ✅                   |
+| Rate Limiting         | Redis-backed          | ✅                   |
+| Code Execution        | Judge0                | ✅                   |
+| API Documentation     | Swagger/OpenAPI       | ✅                   |
+| Request Validation    | Implemented           | ✅                   |
+| Error Handling        | Centralized           | ✅                   |
+| Security Hardening    | Implemented           | ✅                   |
+| Database Optimization | Implemented           | ✅                   |
+| Backend Testing       | Automated tests       | ✅                   |
+| Git                   | Git/GitHub            | ✅                   |
+| Production Hosting    | Vercel + Render       | 🔄 In Progress      |
+| Production Database   | Managed PostgreSQL    | 🔄 Deployment Phase |
+| Docker                | Containerization      | 🔜 Planned          |
+| Docker Compose        | Local infrastructure  | 🔜 Planned          |
+| CI/CD                 | Automated deployment  | 🔜 Planned          |
+| Observability         | Metrics / tracing     | 🔜 Planned          |
+| Monitoring            | Production monitoring | 🔜 Planned          |
+| AI                    | LLM integration       | 🔮 Future           |
+| AI                    | AI coding assistant   | 🔮 Future           |
+| AI                    | AI interviewer        | 🔮 Future           |
+| AI                    | Career intelligence   | 🔮 Future           |
 
 ### Status Legend
 
@@ -607,5 +856,111 @@ The goal is:
 ✅ Implemented
 🔄 In Progress
 🔜 Planned
-🔮 Future Vision
+🔮 Future
 ```
+
+---
+
+# 📂 Repository Structure
+
+```text
+CodeNova/
+│
+├── backend/
+│   ├── src/
+│   ├── prisma/
+│   ├── generated/
+│   └── package.json
+│
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   └── package.json
+│
+├── req_docs/
+│
+├── .gitignore
+└── README.md
+```
+
+---
+
+# 🔗 Repository
+
+GitHub:
+
+**https://github.com/PriyanshuYadav000/CodeNova**
+
+---
+
+# 👨‍💻 Development Philosophy
+
+CodeNova is more than a coding-platform project.
+
+It is being developed as an opportunity to practice real-world engineering concepts across:
+
+* Full-stack development
+* Backend architecture
+* Database engineering
+* Distributed systems
+* Security engineering
+* API design
+* Testing
+* Cloud deployment
+* DevOps
+* Scalability
+* AI engineering
+
+The project follows an incremental engineering approach:
+
+```text
+Feature
+  ↓
+Architecture
+  ↓
+Implementation
+  ↓
+Validation
+  ↓
+Testing
+  ↓
+Production
+  ↓
+Scaling
+  ↓
+AI Intelligence
+```
+
+---
+
+# 🚀 Roadmap
+
+```text
+✅ Core Full-Stack Platform
+        ↓
+✅ PostgreSQL + Prisma
+        ↓
+✅ Redis + Caching + Rate Limiting
+        ↓
+✅ Automated Backend Testing
+        ↓
+✅ Security Hardening
+        ↓
+🔄 Production Hosting
+        ↓
+🔜 Docker
+        ↓
+🔜 CI/CD
+        ↓
+🔜 Observability & Monitoring
+        ↓
+🔮 AI Services
+        ↓
+🔮 Intelligent Coding & Interview Platform
+```
+
+---
+
+## License
+
+This project is currently maintained as a personal software-engineering project.
