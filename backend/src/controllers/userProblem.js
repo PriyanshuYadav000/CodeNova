@@ -957,6 +957,147 @@ const getAdminProblemById = async (req, res, next) => {
     next(err);
   }
 };
+
+const getUserActivity = async (req, res, next) => {
+  try {
+    const userId = req.result.id;
+
+    const date =
+      typeof req.query.date === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        req.query.date
+      )
+        ? req.query.date
+        : null;
+
+    const parsedOffset = Number(
+      req.query.offsetMinutes
+    );
+
+    const offsetMinutes =
+      Number.isInteger(parsedOffset) &&
+      parsedOffset >= -840 &&
+      parsedOffset <= 840
+        ? parsedOffset
+        : 0;
+
+    if (!date) {
+      throw new AppError(
+        'Invalid activity date.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const localStart = new Date(
+      `${date}T00:00:00.000Z`
+    );
+
+    const startUtc = new Date(
+      localStart.getTime() +
+        offsetMinutes * 60 * 1000
+    );
+
+    const endUtc = new Date(
+      startUtc.getTime() +
+        24 * 60 * 60 * 1000
+    );
+
+    const submissions =
+      await prisma.submission.findMany({
+        where: {
+          userId,
+          status: 'accepted',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          problemId: true,
+          createdAt: true,
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              difficulty: true,
+              problemTags: {
+                include: {
+                  tag: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+    const todaySubmissions =
+      submissions.filter((submission) => {
+        return (
+          submission.createdAt >= startUtc &&
+          submission.createdAt < endUtc
+        );
+      });
+
+    const seenProblemIds = new Set();
+
+    const todaySolvedProblems =
+      todaySubmissions.filter(
+        (submission) => {
+          if (
+            seenProblemIds.has(
+              submission.problemId
+            )
+          ) {
+            return false;
+          }
+
+          seenProblemIds.add(
+            submission.problemId
+          );
+
+          return true;
+        }
+      );
+
+    const activeDays = new Set();
+
+    submissions.forEach(
+      (submission) => {
+        const localTime = new Date(
+          submission.createdAt.getTime() -
+            offsetMinutes *
+              60 *
+              1000
+        );
+
+        activeDays.add(
+          localTime
+            .toISOString()
+            .slice(0, 10)
+        );
+      }
+    );
+
+    res.status(200).json({
+      date,
+      activeDays: activeDays.size,
+      todaySolvedCount:
+        todaySolvedProblems.length,
+      todaySubmissionCount:
+        todaySubmissions.length,
+      todaySolvedProblems:
+        todaySolvedProblems.map(
+          ({ problem, createdAt }) => ({
+            ...toProblemSummary(problem),
+            solvedAt: createdAt,
+          })
+        ),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   createProblem,
   updateProblem,
@@ -967,4 +1108,5 @@ module.exports = {
   solvedAllProblembyUser,
   submittedProblem,
   getDashboardStats,
+  getUserActivity,  
 };

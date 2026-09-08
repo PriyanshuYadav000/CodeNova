@@ -1,98 +1,57 @@
-import { useCallback, useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router';
-import { useDispatch, useSelector } from 'react-redux';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { NavLink } from 'react-router';
+import { useSelector } from 'react-redux';
 import {
   ArrowRight,
   CheckCircle2,
-  Circle,
   Code2,
-  ListChecks,
-  LogOut,
+  Flame,
   RefreshCw,
+  Settings,
   Target,
-  TrendingUp,
+  Trophy,
   User,
 } from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
-import { logoutUser } from '../authSlice';
 
 function Dashboard() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
 
-  const { user } = useSelector(
-    (state) => state.auth
-  );
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [dashboardData, setDashboardData] =
-    useState(null);
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
 
-  const [loading, setLoading] =
-    useState(true);
+      const response = await axiosClient.get(
+        '/problem/dashboardStats'
+      );
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+      setDashboardData(response.data);
+    } catch (err) {
+      console.error(
+        'Failed to load dashboard:',
+        err.response?.data || err
+      );
 
-  const [error, setError] =
-    useState('');
-
-  const fetchDashboardData = useCallback(
-    async (isRefresh = false) => {
-      try {
-        if (isRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-
-        setError('');
-
-        const response =
-          await axiosClient.get(
-            '/problem/dashboardStats'
-          );
-
-        setDashboardData(response.data);
-      } catch (err) {
-        console.error(
-          'Failed to load dashboard:',
-          err.response?.data || err
-        );
-
-        setError(
-          err.response?.data?.message ||
-            'Unable to load dashboard data.'
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    []
-  );
+      setError(
+        err.response?.data?.message ||
+          'Unable to load dashboard data.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
     }
   }, [user, fetchDashboardData]);
-
-  const handleLogout = () => {
-    dispatch(logoutUser())
-      .unwrap()
-      .then(() => {
-        navigate('/login');
-      })
-      .catch((err) => {
-        console.error(
-          'Logout failed:',
-          err
-        );
-
-        navigate('/login');
-      });
-  };
 
   const totalProblems =
     dashboardData?.totalProblems || 0;
@@ -106,73 +65,44 @@ function Dashboard() {
   const completionPercentage =
     dashboardData?.completionPercentage || 0;
 
-  const difficultyStats =
-    dashboardData?.difficulty || {
-      easy: {
-        total: 0,
-        solved: 0,
+  const difficulty = useMemo(
+    () =>
+      dashboardData?.difficulty || {
+        easy: {
+          total: 0,
+          solved: 0,
+        },
+        medium: {
+          total: 0,
+          solved: 0,
+        },
+        hard: {
+          total: 0,
+          solved: 0,
+        },
       },
-      medium: {
-        total: 0,
-        solved: 0,
-      },
-      hard: {
-        total: 0,
-        solved: 0,
-      },
-    };
+    [dashboardData]
+  );
 
-  const recentProblems =
-    dashboardData?.recentSolvedProblems || [];
+  const recentSolvedProblems = useMemo(
+    () =>
+      Array.isArray(
+        dashboardData?.recentSolvedProblems
+      )
+        ? dashboardData.recentSolvedProblems
+        : [],
+    [dashboardData]
+  );
 
-  const difficultyItems = [
-    {
-      key: 'easy',
-      label: 'Easy',
-      badge: 'badge-success',
-    },
-    {
-      key: 'medium',
-      label: 'Medium',
-      badge: 'badge-warning',
-    },
-    {
-      key: 'hard',
-      label: 'Hard',
-      badge: 'badge-error',
-    },
-  ];
-
-  const getDifficultyPercentage = (
-    solved,
-    total
-  ) => {
-    if (!total) {
-      return 0;
-    }
-
-    return Math.round(
-      (solved / total) * 100
-    );
-  };
-
-  const getDifficultyBadge = (difficulty) => {
-    if (difficulty === 'easy') {
-      return 'badge-success';
-    }
-
-    if (difficulty === 'medium') {
-      return 'badge-warning';
-    }
-
-    return 'badge-error';
-  };
+  if (!user) {
+    return null;
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <span className="loading loading-spinner loading-lg" />
+          <span className="loading loading-spinner loading-lg text-primary" />
 
           <p className="text-base-content/60">
             Loading your dashboard...
@@ -185,38 +115,27 @@ function Dashboard() {
   if (error) {
     return (
       <div className="min-h-screen bg-base-200">
-        <nav className="navbar bg-base-100 shadow-lg px-4">
+        <nav className="navbar bg-base-100 border-b border-base-300 px-4">
           <div className="flex-1">
             <NavLink
               to="/"
-              className="btn btn-ghost text-xl"
+              className="btn btn-ghost text-xl font-bold"
             >
               CodeNova
             </NavLink>
           </div>
         </nav>
 
-        <main className="container mx-auto max-w-5xl p-4 pt-10">
-          <div className="alert alert-error shadow flex items-center justify-between gap-4">
+        <main className="container mx-auto max-w-5xl px-4 py-10">
+          <div className="alert alert-error shadow">
             <span>{error}</span>
 
             <button
               type="button"
-              onClick={() =>
-                fetchDashboardData(true)
-              }
-              disabled={refreshing}
+              onClick={fetchDashboardData}
               className="btn btn-sm"
             >
-              <RefreshCw
-                size={16}
-                className={
-                  refreshing
-                    ? 'animate-spin'
-                    : ''
-                }
-              />
-
+              <RefreshCw size={16} />
               Retry
             </button>
           </div>
@@ -227,488 +146,452 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-base-200">
-      <nav className="navbar bg-base-100 shadow-lg px-4">
+      <nav className="navbar sticky top-0 z-50 bg-base-100 border-b border-base-300 px-4">
         <div className="flex-1">
           <NavLink
             to="/"
-            className="btn btn-ghost text-xl"
+            className="btn btn-ghost text-xl font-bold"
           >
             CodeNova
           </NavLink>
         </div>
 
-        <div className="flex-none">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                fetchDashboardData(true)
-              }
-              disabled={refreshing}
-              className="btn btn-ghost btn-circle"
-              title="Refresh dashboard"
-            >
-              <RefreshCw
-                size={18}
-                className={
-                  refreshing
-                    ? 'animate-spin'
-                    : ''
-                }
-              />
-            </button>
+        <div className="flex items-center gap-2">
+          <NavLink
+            to="/profile"
+            className="btn btn-ghost btn-sm gap-2"
+          >
+            <User size={17} />
+            <span className="hidden sm:inline">
+              Profile
+            </span>
+          </NavLink>
 
-            <div className="dropdown dropdown-end">
-              <div
-                tabIndex={0}
-                role="button"
-                className="btn btn-ghost"
-              >
-                {user?.firstName}
-              </div>
-
-              <ul className="mt-3 p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
-                <li>
-                  <NavLink to="/dashboard">
-                    <Target size={16} />
-                    Dashboard
-                  </NavLink>
-                </li>
-
-                <li>
-                  <NavLink to="/">
-                    <Code2 size={16} />
-                    Problems
-                  </NavLink>
-                </li>
-
-                {user?.role === 'admin' && (
-                  <li>
-                    <NavLink to="/admin">
-                      <ListChecks size={16} />
-                      Admin
-                    </NavLink>
-                  </li>
-                )}
-
-                <div className="divider my-1" />
-
-                <li>
-                  <NavLink to="/dashboard">
-                    <User size={16} />
-                    Profile
-                  </NavLink>
-                </li>
-
-                <li>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="text-error"
-                  >
-                    <LogOut size={16} />
-                    Logout
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
+          <NavLink
+            to="/settings"
+            className="btn btn-ghost btn-circle"
+            aria-label="Settings"
+          >
+            <Settings size={18} />
+          </NavLink>
         </div>
       </nav>
 
       <main className="container mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-            <div>
-              <p className="text-sm text-primary font-semibold uppercase tracking-wide">
-                Dashboard
-              </p>
-
-              <h1 className="text-3xl md:text-4xl font-bold mt-1">
-                Welcome back,{' '}
-                {user?.firstName} 👋
-              </h1>
-
-              <p className="text-base-content/60 mt-2">
-                Track your coding progress and keep
-                practicing.
-              </p>
-            </div>
-
-            <NavLink
-              to="/"
-              className="btn btn-primary"
-            >
-              Solve Problems
-              <ArrowRight size={16} />
-            </NavLink>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-          <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
+        <section className="mb-8">
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
             <div className="card-body">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm text-base-content/60">
-                    Total Problems
+                  <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                    Dashboard
                   </p>
 
-                  <h2 className="text-3xl font-bold mt-1">
-                    {totalProblems}
-                  </h2>
-                </div>
+                  <h1 className="mt-1 text-3xl font-bold md:text-4xl">
+                    Welcome back, {user.firstName} 👋
+                  </h1>
 
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <Code2 className="text-primary" />
-                </div>
-              </div>
-
-              <p className="text-xs text-base-content/50 mt-3">
-                Available problems
-              </p>
-            </div>
-          </div>
-
-          <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
-            <div className="card-body">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-base-content/60">
-                    Problems Solved
+                  <p className="mt-2 max-w-2xl text-base-content/60">
+                    Your complete coding progress, lifetime
+                    statistics, and solved-problem history.
                   </p>
-
-                  <h2 className="text-3xl font-bold mt-1">
-                    {totalSolved}
-                  </h2>
                 </div>
 
-                <div className="p-3 rounded-xl bg-success/10">
-                  <CheckCircle2 className="text-success" />
-                </div>
-              </div>
+                <div className="flex flex-wrap gap-2">
+                  <NavLink
+                    to="/profile"
+                    className="btn btn-outline gap-2"
+                  >
+                    <User size={17} />
+                    Profile
+                  </NavLink>
 
-              <p className="text-xs text-base-content/50 mt-3">
-                Successfully completed
-              </p>
-            </div>
-          </div>
-
-          <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
-            <div className="card-body">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-base-content/60">
-                    Remaining
-                  </p>
-
-                  <h2 className="text-3xl font-bold mt-1">
-                    {totalUnsolved}
-                  </h2>
-                </div>
-
-                <div className="p-3 rounded-xl bg-warning/10">
-                  <Target className="text-warning" />
+                  <NavLink
+                    to="/"
+                    className="btn btn-primary gap-2"
+                  >
+                    Practice Problems
+                    <ArrowRight size={17} />
+                  </NavLink>
                 </div>
               </div>
-
-              <p className="text-xs text-base-content/50 mt-3">
-                Problems left to solve
-              </p>
             </div>
           </div>
+        </section>
 
-          <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
+        <section className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Total Problems"
+            value={totalProblems}
+            icon={<Code2 size={23} />}
+            iconClass="bg-primary/10 text-primary"
+          />
+
+          <StatCard
+            title="Problems Solved"
+            value={totalSolved}
+            icon={<CheckCircle2 size={23} />}
+            iconClass="bg-success/10 text-success"
+          />
+
+          <StatCard
+            title="Remaining"
+            value={totalUnsolved}
+            icon={<Target size={23} />}
+            iconClass="bg-warning/10 text-warning"
+          />
+
+          <StatCard
+            title="Completion"
+            value={`${completionPercentage}%`}
+            icon={<Trophy size={23} />}
+            iconClass="bg-info/10 text-info"
+          />
+        </section>
+
+        <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
             <div className="card-body">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-base-content/60">
-                    Completion
-                  </p>
-
-                  <h2 className="text-3xl font-bold mt-1">
-                    {completionPercentage}%
-                  </h2>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-primary/10 p-3 text-primary">
+                  <Trophy size={22} />
                 </div>
 
-                <div className="p-3 rounded-xl bg-info/10">
-                  <TrendingUp className="text-info" />
-                </div>
-              </div>
-
-              <progress
-                className="progress progress-info w-full mt-3"
-                value={completionPercentage}
-                max="100"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          <section className="card bg-base-100 border border-base-300 shadow-sm">
-            <div className="card-body">
-              <div className="flex items-center justify-between mb-2">
                 <div>
                   <h2 className="card-title">
                     Overall Progress
                   </h2>
 
                   <p className="text-sm text-base-content/60">
-                    Keep solving to improve your completion
-                    rate.
+                    Lifetime completion
                   </p>
-                </div>
-
-                <ListChecks className="text-primary" />
-              </div>
-
-              <div className="mt-4">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium">
-                    Your progress
-                  </span>
-
-                  <span className="font-semibold text-primary">
-                    {completionPercentage}%
-                  </span>
-                </div>
-
-                <progress
-                  className="progress progress-primary w-full"
-                  value={completionPercentage}
-                  max="100"
-                />
-
-                <div className="flex justify-between text-sm mt-2 text-base-content/60">
-                  <span>
-                    {totalSolved} solved
-                  </span>
-
-                  <span>
-                    {totalProblems} total
-                  </span>
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-base-200 p-3 text-center">
-                  <p className="text-lg font-bold">
-                    {totalSolved}
-                  </p>
+              <div className="flex justify-center py-7">
+                <div
+                  className="radial-progress text-primary"
+                  style={{
+                    '--value': completionPercentage,
+                    '--size': '11rem',
+                    '--thickness': '0.8rem',
+                  }}
+                  role="progressbar"
+                >
+                  <div className="text-center">
+                    <p className="text-3xl font-bold">
+                      {totalSolved}/{totalProblems}
+                    </p>
 
-                  <p className="text-xs text-base-content/60">
-                    Solved
-                  </p>
+                    <p className="text-xs text-base-content/60">
+                      solved
+                    </p>
+                  </div>
                 </div>
+              </div>
 
-                <div className="rounded-xl bg-base-200 p-3 text-center">
-                  <p className="text-lg font-bold">
-                    {totalUnsolved}
-                  </p>
+              <div className="text-center">
+                <p className="font-semibold">
+                  {completionPercentage}% complete
+                </p>
 
-                  <p className="text-xs text-base-content/60">
-                    Remaining
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-base-200 p-3 text-center">
-                  <p className="text-lg font-bold">
-                    {completionPercentage}%
-                  </p>
-
-                  <p className="text-xs text-base-content/60">
-                    Complete
-                  </p>
-                </div>
+                <p className="mt-1 text-sm text-base-content/60">
+                  Keep solving to improve your progress.
+                </p>
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card bg-base-100 border border-base-300 shadow-sm lg:col-span-2">
             <div className="card-body">
-              <div className="flex items-start justify-between gap-4">
+              <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="card-title">
                     Difficulty Breakdown
                   </h2>
 
-                  <p className="text-sm text-base-content/60 mt-1">
-                    Your progress across different difficulty
-                    levels.
+                  <p className="text-sm text-base-content/60">
+                    Lifetime progress by difficulty
                   </p>
                 </div>
 
-                <TrendingUp className="text-primary" />
+                <Target
+                  size={20}
+                  className="text-primary"
+                />
               </div>
 
-              <div className="space-y-5 mt-5">
-                {difficultyItems.map((item) => {
-                  const stat =
-                    difficultyStats[item.key];
+              <div className="space-y-7">
+                <DifficultyRow
+                  label="Easy"
+                  solved={difficulty.easy.solved}
+                  total={difficulty.easy.total}
+                  badgeClass="badge-success"
+                  progressClass="progress-success"
+                />
 
-                  const percentage =
-                    getDifficultyPercentage(
-                      stat.solved,
-                      stat.total
-                    );
+                <DifficultyRow
+                  label="Medium"
+                  solved={difficulty.medium.solved}
+                  total={difficulty.medium.total}
+                  badgeClass="badge-warning"
+                  progressClass="progress-warning"
+                />
 
-                  return (
-                    <div
-                      key={item.key}
-                      className="space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`badge ${item.badge} min-w-20`}
-                          >
-                            {item.label}
-                          </span>
-
-                          <span className="text-sm text-base-content/60">
-                            {stat.solved} solved
-                          </span>
-                        </div>
-
-                        <span className="text-sm font-medium">
-                          {stat.solved}/{stat.total}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <progress
-                          className="progress w-full"
-                          value={stat.solved}
-                          max={stat.total || 1}
-                        />
-
-                        <span className="text-xs text-base-content/50 w-10 text-right">
-                          {percentage}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                <DifficultyRow
+                  label="Hard"
+                  solved={difficulty.hard.solved}
+                  total={difficulty.hard.total}
+                  badgeClass="badge-error"
+                  progressClass="progress-error"
+                />
               </div>
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
+
+        <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-success/10 p-3 text-success">
+                  <CheckCircle2 size={21} />
+                </div>
+
+                <div>
+                  <p className="text-sm text-base-content/60">
+                    Lifetime Solved
+                  </p>
+
+                  <p className="text-2xl font-bold">
+                    {totalSolved}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-warning/10 p-3 text-warning">
+                  <Flame size={21} />
+                </div>
+
+                <div>
+                  <p className="text-sm text-base-content/60">
+                    Remaining
+                  </p>
+
+                  <p className="text-2xl font-bold">
+                    {totalUnsolved}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-info/10 p-3 text-info">
+                  <Code2 size={21} />
+                </div>
+
+                <div>
+                  <p className="text-sm text-base-content/60">
+                    Problems Available
+                  </p>
+
+                  <p className="text-2xl font-bold">
+                    {totalProblems}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="card-title">
-                  Solved Problems
+                  Recently Solved
                 </h2>
 
                 <p className="text-sm text-base-content/60">
-                  Continue practicing problems you have solved.
+                  Your latest accepted problems across all time.
                 </p>
               </div>
 
               <NavLink
-                to="/"
-                className="btn btn-sm btn-outline"
+                to="/profile"
+                className="btn btn-outline btn-sm gap-2"
               >
-                View All ({totalSolved})
-                <ArrowRight size={16} />
+                View Profile
+                <ArrowRight size={15} />
               </NavLink>
             </div>
 
-            {recentProblems.length === 0 ? (
-              <div className="text-center py-10">
-                <Circle className="mx-auto mb-3 opacity-40" />
+            {recentSolvedProblems.length === 0 ? (
+              <div className="flex min-h-48 flex-col items-center justify-center text-center">
+                <Target
+                  size={40}
+                  className="text-base-content/30"
+                />
 
-                <p className="text-base-content/60">
-                  You haven't solved any problems yet.
+                <p className="mt-3 font-semibold">
+                  No solved problems yet
+                </p>
+
+                <p className="mt-1 text-sm text-base-content/60">
+                  Solve your first problem to start building
+                  your dashboard.
                 </p>
 
                 <NavLink
                   to="/"
                   className="btn btn-primary btn-sm mt-4"
                 >
-                  Start Solving
+                  Start Practicing
                 </NavLink>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Problem</th>
-                      <th>Difficulty</th>
-                      <th>Status</th>
-                      <th />
-                    </tr>
-                  </thead>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {recentSolvedProblems.map(
+                  (problem) => {
+                    const problemId =
+                      problem.id || problem._id;
 
-                  <tbody>
-                    {recentProblems.map((problem) => (
-                      <tr
-                        key={problem._id}
-                        className="hover"
+                    return (
+                      <NavLink
+                        key={problemId}
+                        to={`/problem/${problemId}`}
+                        className="group rounded-xl border border-base-300 bg-base-200 p-4 transition hover:border-primary/40 hover:bg-base-300"
                       >
-                        <td>
-                          <div className="font-medium">
-                            {problem.title}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold group-hover:text-primary">
+                              {problem.title}
+                            </p>
+
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span
+                                className={`badge badge-sm capitalize ${
+                                  problem.difficulty ===
+                                  'easy'
+                                    ? 'badge-success'
+                                    : problem.difficulty ===
+                                        'medium'
+                                      ? 'badge-warning'
+                                      : 'badge-error'
+                                }`}
+                              >
+                                {problem.difficulty}
+                              </span>
+
+                              {problem.problemTags
+                                ?.slice(0, 2)
+                                .map(
+                                  ({ tag }) => (
+                                    <span
+                                      key={
+                                        tag.id
+                                      }
+                                      className="badge badge-outline badge-sm"
+                                    >
+                                      {
+                                        tag.name
+                                      }
+                                    </span>
+                                  )
+                                )}
+                            </div>
                           </div>
 
-                          {Array.isArray(
-                            problem.tags
-                          ) &&
-                            problem.tags.length >
-                              0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {problem.tags
-                                  .slice(0, 3)
-                                  .map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="badge badge-ghost badge-sm"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                              </div>
-                            )}
-                        </td>
-
-                        <td>
-                          <span
-                            className={`badge ${getDifficultyBadge(
-                              problem.difficulty
-                            )}`}
-                          >
-                            {problem.difficulty}
-                          </span>
-                        </td>
-
-                        <td>
-                          <span className="badge badge-success gap-1">
-                            <CheckCircle2 size={14} />
-                            Solved
-                          </span>
-                        </td>
-
-                        <td className="text-right">
-                          <NavLink
-                            to={`/problem/${problem._id}`}
-                            className="btn btn-sm btn-primary"
-                          >
-                            View
-                          </NavLink>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <CheckCircle2
+                            size={19}
+                            className="shrink-0 text-success"
+                          />
+                        </div>
+                      </NavLink>
+                    );
+                  }
+                )}
               </div>
             )}
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon,
+  iconClass,
+}) {
+  return (
+    <div className="card bg-base-100 border border-base-300 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="card-body">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-base-content/60">
+              {title}
+            </p>
+
+            <p className="mt-1 text-3xl font-bold">
+              {value}
+            </p>
+          </div>
+
+          <div className={`rounded-xl p-3 ${iconClass}`}>
+            {icon}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DifficultyRow({
+  label,
+  solved,
+  total,
+  badgeClass,
+  progressClass,
+}) {
+  const percentage =
+    total > 0
+      ? Math.round((solved / total) * 100)
+      : 0;
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`badge ${badgeClass}`}>
+            {label}
+          </span>
+
+          <span className="text-sm text-base-content/60">
+            {solved}/{total}
+          </span>
+        </div>
+
+        <span className="text-sm font-semibold">
+          {percentage}%
+        </span>
+      </div>
+
+      <progress
+        className={`progress w-full ${progressClass}`}
+        value={percentage}
+        max="100"
+      />
     </div>
   );
 }

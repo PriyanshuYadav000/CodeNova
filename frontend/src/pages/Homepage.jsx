@@ -32,6 +32,7 @@ import {
   ChevronRight,
   RefreshCw,
   AlertCircle,
+  User,
 } from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
@@ -59,7 +60,9 @@ function Homepage() {
   const [solvedProblems, setSolvedProblems] =
     useState([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
+
   const [problemsLoading, setProblemsLoading] =
     useState(false);
 
@@ -216,7 +219,8 @@ function Homepage() {
     () =>
       new Set(
         solvedProblems.map(
-          (problem) => problem._id
+          (problem) =>
+            problem.id || problem._id
         )
       ),
     [solvedProblems]
@@ -226,15 +230,29 @@ function Homepage() {
     const tags = new Set();
 
     problems.forEach((problem) => {
-      const problemTags =
-        Array.isArray(problem.tags)
-          ? problem.tags
+      const problemTags = Array.isArray(
+        problem.tags
+      )
+        ? problem.tags
+        : Array.isArray(
+              problem.problemTags
+            )
+          ? problem.problemTags.map(
+              ({ tag }) =>
+                tag?.name
+            )
           : problem.tags
             ? [problem.tags]
             : [];
 
       problemTags.forEach((tag) => {
-        tags.add(tag);
+        if (tag) {
+          tags.add(
+            typeof tag === 'string'
+              ? tag
+              : tag.name
+          );
+        }
       });
     });
 
@@ -243,15 +261,18 @@ function Homepage() {
 
   const filteredProblems = useMemo(() => {
     return problems.filter((problem) => {
+      const problemId =
+        problem.id || problem._id;
+
       const statusMatch =
         filters.status === 'all' ||
         (filters.status === 'solved' &&
           solvedProblemIds.has(
-            problem._id
+            problemId
           )) ||
         (filters.status === 'unsolved' &&
           !solvedProblemIds.has(
-            problem._id
+            problemId
           ));
 
       return statusMatch;
@@ -358,6 +379,14 @@ function Homepage() {
     (_, index) => index + 1
   );
 
+  const userInitials = `${user?.firstName
+    ?.charAt(0)
+    ?.toUpperCase() || ''}${
+    user?.lastName
+      ?.charAt(0)
+      ?.toUpperCase() || ''
+  }` || 'U';
+
   if (loading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
@@ -438,9 +467,7 @@ function Homepage() {
               to="/store"
               className="btn btn-ghost btn-sm gap-2"
             >
-              <ShoppingBag
-                size={16}
-              />
+              <ShoppingBag size={16} />
               Store
             </NavLink>
 
@@ -477,7 +504,6 @@ function Homepage() {
                 className="btn btn-primary btn-sm gap-2"
               >
                 <UserPlus size={17} />
-
                 <span>Sign Up</span>
               </NavLink>
             </div>
@@ -501,10 +527,7 @@ function Homepage() {
                   <div className="avatar placeholder">
                     <div className="bg-primary text-primary-content rounded-full w-8">
                       <span className="font-bold">
-                        {user?.firstName
-                          ?.charAt(0)
-                          ?.toUpperCase() ||
-                          'U'}
+                        {userInitials}
                       </span>
                     </div>
                   </div>
@@ -517,6 +540,16 @@ function Homepage() {
                 </div>
 
                 <ul className="mt-3 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-box w-56 z-50 border border-base-300">
+                  <li>
+                    <NavLink
+                      to="/profile"
+                      className="gap-2"
+                    >
+                      <User size={16} />
+                      Profile
+                    </NavLink>
+                  </li>
+
                   <li>
                     <NavLink
                       to="/dashboard"
@@ -545,7 +578,9 @@ function Homepage() {
                         to="/admin"
                         className="gap-2"
                       >
-                        <ShieldCheck size={16} />
+                        <ShieldCheck
+                          size={16}
+                        />
                         Admin
                       </NavLink>
                     </li>
@@ -650,13 +685,23 @@ function Homepage() {
                     </p>
                   </div>
 
-                  <NavLink
-                    to="/dashboard"
-                    className="btn btn-primary gap-2 w-fit"
-                  >
-                    View Progress
-                    <ArrowRight size={17} />
-                  </NavLink>
+                  <div className="flex flex-wrap gap-2">
+                    <NavLink
+                      to="/profile"
+                      className="btn btn-outline gap-2 w-fit"
+                    >
+                      <User size={17} />
+                      Profile
+                    </NavLink>
+
+                    <NavLink
+                      to="/dashboard"
+                      className="btn btn-primary gap-2 w-fit"
+                    >
+                      View Progress
+                      <ArrowRight size={17} />
+                    </NavLink>
+                  </div>
                 </div>
               </div>
             </div>
@@ -842,7 +887,9 @@ function Homepage() {
 
             <button
               type="button"
-              onClick={fetchSolvedProblems}
+              onClick={
+                fetchSolvedProblems
+              }
               disabled={solvedLoading}
               className="btn btn-sm"
             >
@@ -1038,25 +1085,34 @@ function Homepage() {
             <div className="grid gap-4">
               {filteredProblems.map(
                 (problem) => {
+                  const problemId =
+                    problem.id ||
+                    problem._id;
+
                   const problemTags =
                     Array.isArray(
                       problem.tags
                     )
                       ? problem.tags
-                      : problem.tags
-                        ? [problem.tags]
-                        : [];
+                      : Array.isArray(
+                            problem.problemTags
+                          )
+                        ? problem.problemTags.map(
+                            ({ tag }) =>
+                              tag?.name
+                          )
+                        : problem.tags
+                          ? [problem.tags]
+                          : [];
 
                   const isSolved =
                     solvedProblemIds.has(
-                      problem._id
+                      problemId
                     );
 
                   return (
                     <div
-                      key={
-                        problem._id
-                      }
+                      key={problemId}
                       className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                     >
                       <div className="card-body">
@@ -1065,7 +1121,7 @@ function Homepage() {
                             <NavLink
                               to={
                                 user
-                                  ? `/problem/${problem._id}`
+                                  ? `/problem/${problemId}`
                                   : '/login'
                               }
                               className="hover:text-primary transition-colors"
@@ -1100,18 +1156,26 @@ function Homepage() {
                             )}
                           </div>
 
-                          {problemTags.map(
-                            (tag) => (
-                              <div
-                                key={
-                                  tag
-                                }
-                                className="badge badge-info badge-outline"
-                              >
-                                {tag}
-                              </div>
-                            )
-                          )}
+                          {problemTags
+                            .filter(Boolean)
+                            .map(
+                              (tag) => (
+                                <div
+                                  key={
+                                    typeof tag ===
+                                    'string'
+                                      ? tag
+                                      : tag.name
+                                  }
+                                  className="badge badge-info badge-outline"
+                                >
+                                  {typeof tag ===
+                                  'string'
+                                    ? tag
+                                    : tag.name}
+                                </div>
+                              )
+                            )}
                         </div>
 
                         {!user && (
