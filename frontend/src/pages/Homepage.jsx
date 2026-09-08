@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { NavLink } from 'react-router';
-import { useDispatch, useSelector } from 'react-redux';
+import {
+  useDispatch,
+  useSelector,
+} from 'react-redux';
 import {
   Settings,
   LogIn,
@@ -22,6 +30,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
@@ -29,27 +39,44 @@ import { logoutUser } from '../authSlice';
 
 const PROBLEMS_PER_PAGE = 5;
 
+const DEFAULT_PAGINATION = {
+  page: 1,
+  limit: PROBLEMS_PER_PAGE,
+  totalProblems: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
+
 function Homepage() {
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+
+  const { user } = useSelector(
+    (state) => state.auth
+  );
 
   const [problems, setProblems] = useState([]);
-  const [solvedProblems, setSolvedProblems] = useState([]);
+  const [solvedProblems, setSolvedProblems] =
+    useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [problemsLoading, setProblemsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [problemsLoading, setProblemsLoading] =
+    useState(false);
 
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: PROBLEMS_PER_PAGE,
-    totalProblems: 0,
-    totalPages: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
+  const [solvedLoading, setSolvedLoading] =
+    useState(false);
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [problemsError, setProblemsError] =
+    useState('');
+
+  const [solvedError, setSolvedError] =
+    useState('');
+
+  const [pagination, setPagination] =
+    useState(DEFAULT_PAGINATION);
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
 
   const [filters, setFilters] = useState({
     difficulty: 'all',
@@ -57,44 +84,46 @@ function Homepage() {
     status: 'all',
   });
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] =
+    useState('');
 
-  useEffect(() => {
-    const fetchProblems = async () => {
+  const fetchProblems = useCallback(
+    async (initialLoad = false) => {
       try {
-        setProblemsLoading(true);
-        setError(null);
+        if (initialLoad) {
+          setLoading(true);
+        } else {
+          setProblemsLoading(true);
+        }
 
-        const problemsResponse = await axiosClient.get(
-          '/problem/getAllProblem',
-          {
-            params: {
-              page: currentPage,
-              limit: PROBLEMS_PER_PAGE,
-              search: searchQuery.trim(),
-              difficulty: filters.difficulty,
-              tag: filters.tag,
-            },
-          }
-        );
+        setProblemsError('');
+
+        const response =
+          await axiosClient.get(
+            '/problem/getAllProblem',
+            {
+              params: {
+                page: currentPage,
+                limit: PROBLEMS_PER_PAGE,
+                search: searchQuery.trim(),
+                difficulty:
+                  filters.difficulty,
+                tag: filters.tag,
+              },
+            }
+          );
 
         setProblems(
           Array.isArray(
-            problemsResponse.data?.problems
+            response.data?.problems
           )
-            ? problemsResponse.data.problems
+            ? response.data.problems
             : []
         );
 
         setPagination(
-          problemsResponse.data?.pagination || {
-            page: currentPage,
-            limit: PROBLEMS_PER_PAGE,
-            totalProblems: 0,
-            totalPages: 0,
-            hasNextPage: false,
-            hasPreviousPage: false,
-          }
+          response.data?.pagination ||
+            DEFAULT_PAGINATION
         );
       } catch (error) {
         console.error(
@@ -102,39 +131,46 @@ function Homepage() {
           error
         );
 
-        setError(
+        setProblemsError(
           error.response?.data?.message ||
             'Unable to load problems. Please try again.'
         );
       } finally {
-        setProblemsLoading(false);
-        setLoading(false);
+        if (initialLoad) {
+          setLoading(false);
+        } else {
+          setProblemsLoading(false);
+        }
       }
-    };
+    },
+    [
+      currentPage,
+      searchQuery,
+      filters.difficulty,
+      filters.tag,
+    ]
+  );
 
-    fetchProblems();
-  }, [
-    currentPage,
-    searchQuery,
-    filters.difficulty,
-    filters.tag,
-  ]);
-
-  useEffect(() => {
-    const fetchSolvedProblems = async () => {
+  const fetchSolvedProblems =
+    useCallback(async () => {
       if (!user) {
         setSolvedProblems([]);
+        setSolvedError('');
         return;
       }
 
       try {
-        const solvedResponse = await axiosClient.get(
-          '/problem/problemSolvedByUser'
-        );
+        setSolvedLoading(true);
+        setSolvedError('');
+
+        const response =
+          await axiosClient.get(
+            '/problem/problemSolvedByUser'
+          );
 
         setSolvedProblems(
-          Array.isArray(solvedResponse.data)
-            ? solvedResponse.data
+          Array.isArray(response.data)
+            ? response.data
             : []
         );
       } catch (error) {
@@ -142,11 +178,39 @@ function Homepage() {
           'Error loading solved problems:',
           error
         );
-      }
-    };
 
+        setSolvedError(
+          error.response?.data?.message ||
+            'Unable to load your progress.'
+        );
+      } finally {
+        setSolvedLoading(false);
+      }
+    }, [user]);
+
+  useEffect(() => {
+    fetchProblems(true);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProblems(false);
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    currentPage,
+    searchQuery,
+    filters.difficulty,
+    filters.tag,
+    fetchProblems,
+  ]);
+
+  useEffect(() => {
     fetchSolvedProblems();
-  }, [user]);
+  }, [fetchSolvedProblems]);
 
   const solvedProblemIds = useMemo(
     () =>
@@ -169,9 +233,9 @@ function Homepage() {
             ? [problem.tags]
             : [];
 
-      problemTags.forEach((tag) =>
-        tags.add(tag)
-      );
+      problemTags.forEach((tag) => {
+        tags.add(tag);
+      });
     });
 
     return [...tags].sort();
@@ -247,10 +311,7 @@ function Homepage() {
     });
 
     setSearchQuery('');
-
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
+    setCurrentPage(1);
   };
 
   const handleSearchChange = (value) => {
@@ -269,9 +330,7 @@ function Homepage() {
       difficulty: value,
     }));
 
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
+    setCurrentPage(1);
   };
 
   const handleTagChange = (value) => {
@@ -280,9 +339,7 @@ function Homepage() {
       tag: value,
     }));
 
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
+    setCurrentPage(1);
   };
 
   const handleStatusChange = (value) => {
@@ -291,9 +348,7 @@ function Homepage() {
       status: value,
     }));
 
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
+    setCurrentPage(1);
   };
 
   const pageNumbers = Array.from(
@@ -306,93 +361,28 @@ function Homepage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg" />
-      </div>
-    );
-  }
+        <div className="flex flex-col items-center gap-3">
+          <span className="loading loading-spinner loading-lg" />
 
-  if (error && problems.length === 0) {
-    return (
-      <div className="min-h-screen bg-base-200">
-
-        <nav className="navbar bg-base-100 border-b border-base-300 px-4 sticky top-0 z-50">
-
-          <div className="navbar-start">
-
-            <NavLink
-              to="/"
-              className="flex items-center gap-2"
-            >
-              <CodeNovaLogo />
-
-              <div className="hidden sm:block">
-
-                <div className="font-bold text-lg leading-none">
-                  CodeNova
-                </div>
-
-                <div className="text-[10px] text-base-content/50">
-                  AI-powered coding
-                </div>
-
-              </div>
-
-            </NavLink>
-
-          </div>
-
-          <div className="navbar-end flex items-center gap-2">
-
-            <NavLink
-              to="/login"
-              className="btn btn-ghost btn-sm gap-2"
-            >
-              <LogIn size={17} />
-              Login
-            </NavLink>
-
-            <NavLink
-              to="/signup"
-              className="btn btn-primary btn-sm gap-2"
-            >
-              <UserPlus size={17} />
-              Sign Up
-            </NavLink>
-
-          </div>
-
-        </nav>
-
-        <main className="container mx-auto max-w-7xl p-4 sm:p-6 pt-8">
-
-          <div className="alert alert-error shadow-sm">
-            <span>{error}</span>
-          </div>
-
-        </main>
-
+          <p className="text-base-content/60">
+            Loading CodeNova...
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-base-200">
-
-      {/* Navbar */}
       <nav className="navbar bg-base-100 border-b border-base-300 px-4 lg:px-6 sticky top-0 z-50">
-
-        {/* Logo */}
         <div className="navbar-start">
-
           <NavLink
             to="/"
             className="flex items-center gap-2 hover:opacity-80 transition"
           >
-
             <CodeNovaLogo />
 
             <div className="hidden sm:block">
-
               <div className="font-bold text-lg leading-none">
                 CodeNova
               </div>
@@ -400,18 +390,12 @@ function Homepage() {
               <div className="text-[10px] text-base-content/50">
                 AI-powered coding
               </div>
-
             </div>
-
           </NavLink>
-
         </div>
 
-        {/* Main Navigation */}
         <div className="navbar-center hidden lg:flex">
-
           <div className="flex items-center gap-1">
-
             <NavLink
               to="/"
               className={({ isActive }) =>
@@ -454,7 +438,9 @@ function Homepage() {
               to="/store"
               className="btn btn-ghost btn-sm gap-2"
             >
-              <ShoppingBag size={16} />
+              <ShoppingBag
+                size={16}
+              />
               Store
             </NavLink>
 
@@ -468,20 +454,13 @@ function Homepage() {
               <span className="badge badge-warning badge-xs">
                 Soon
               </span>
-
             </NavLink>
-
           </div>
-
         </div>
 
-        {/* User Area */}
         <div className="navbar-end">
-
           {!user ? (
-
             <div className="flex items-center gap-2">
-
               <NavLink
                 to="/login"
                 className="btn btn-ghost btn-sm gap-2"
@@ -491,7 +470,6 @@ function Homepage() {
                 <span className="hidden sm:inline">
                   Login
                 </span>
-
               </NavLink>
 
               <NavLink
@@ -500,18 +478,11 @@ function Homepage() {
               >
                 <UserPlus size={17} />
 
-                <span>
-                  Sign Up
-                </span>
-
+                <span>Sign Up</span>
               </NavLink>
-
             </div>
-
           ) : (
-
             <div className="flex items-center gap-2">
-
               <NavLink
                 to="/settings"
                 className="btn btn-ghost btn-circle hover:text-primary transition"
@@ -522,26 +493,20 @@ function Homepage() {
               </NavLink>
 
               <div className="dropdown dropdown-end">
-
                 <div
                   tabIndex={0}
                   role="button"
                   className="btn btn-ghost gap-2"
                 >
-
                   <div className="avatar placeholder">
-
                     <div className="bg-primary text-primary-content rounded-full w-8">
-
                       <span className="font-bold">
                         {user?.firstName
                           ?.charAt(0)
                           ?.toUpperCase() ||
                           'U'}
                       </span>
-
                     </div>
-
                   </div>
 
                   <span className="hidden sm:inline font-medium">
@@ -549,17 +514,17 @@ function Homepage() {
                   </span>
 
                   <ChevronDown size={15} />
-
                 </div>
 
                 <ul className="mt-3 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-box w-56 z-50 border border-base-300">
-
                   <li>
                     <NavLink
                       to="/dashboard"
                       className="gap-2"
                     >
-                      <LayoutDashboard size={16} />
+                      <LayoutDashboard
+                        size={16}
+                      />
                       Dashboard
                     </NavLink>
                   </li>
@@ -598,24 +563,15 @@ function Homepage() {
                       Logout
                     </button>
                   </li>
-
                 </ul>
-
               </div>
-
             </div>
-
           )}
-
         </div>
-
       </nav>
 
-      {/* Mobile Navigation */}
       <div className="lg:hidden bg-base-100 border-b border-base-300 px-3 py-2 overflow-x-auto">
-
         <div className="flex items-center gap-1 min-w-max">
-
           <NavLink
             to="/"
             className="btn btn-ghost btn-sm gap-2"
@@ -666,28 +622,17 @@ function Homepage() {
             <span className="badge badge-warning badge-xs">
               Soon
             </span>
-
           </NavLink>
-
         </div>
-
       </div>
 
       <main className="container mx-auto max-w-7xl p-4 sm:p-6">
-
-        {/* Logged In Welcome */}
         {user ? (
-
           <section className="mb-8">
-
             <div className="card bg-base-100 border border-base-300 shadow-sm overflow-hidden">
-
               <div className="card-body">
-
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
                   <div>
-
                     <div className="flex items-center gap-2 text-primary font-semibold text-sm mb-2">
                       <Sparkles size={16} />
                       Your coding workspace
@@ -703,7 +648,6 @@ function Homepage() {
                       Pick a problem and keep your
                       coding journey moving.
                     </p>
-
                   </div>
 
                   <NavLink
@@ -713,38 +657,23 @@ function Homepage() {
                     View Progress
                     <ArrowRight size={17} />
                   </NavLink>
-
                 </div>
-
               </div>
-
             </div>
-
           </section>
-
         ) : (
-
-          /* Logged Out Greeting */
           <section className="mb-7">
-
             <div className="card bg-base-100 border border-base-300 shadow-sm">
-
               <div className="card-body py-7 sm:py-8">
-
                 <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-
                   <div className="shrink-0">
-
                     <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                       <CodeNovaLogo size={30} />
                     </div>
-
                   </div>
 
                   <div className="flex-1">
-
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-
                       <h1 className="text-2xl sm:text-3xl font-bold">
                         Welcome to CodeNova 👋
                       </h1>
@@ -752,7 +681,6 @@ function Homepage() {
                       <span className="badge badge-primary badge-sm">
                         Developer Practice
                       </span>
-
                     </div>
 
                     <p className="text-base-content/60 text-sm sm:text-base max-w-3xl">
@@ -764,7 +692,6 @@ function Homepage() {
                     </p>
 
                     <div className="flex flex-wrap gap-2 mt-4">
-
                       <NavLink
                         to="/signup"
                         className="btn btn-primary btn-sm gap-2"
@@ -779,34 +706,20 @@ function Homepage() {
                       >
                         Already a member? Login
                       </NavLink>
-
                     </div>
-
                   </div>
-
                 </div>
-
               </div>
-
             </div>
-
           </section>
-
         )}
 
-        {/* Progress Summary */}
         {user && (
-
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-
             <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
-
               <div className="card-body">
-
                 <div className="flex items-center justify-between">
-
                   <div>
-
                     <p className="text-sm text-base-content/60">
                       Total Problems
                     </p>
@@ -814,27 +727,19 @@ function Homepage() {
                     <p className="text-3xl font-bold mt-1">
                       {totalProblems}
                     </p>
-
                   </div>
 
                   <div className="p-3 rounded-xl bg-primary/10 text-primary">
                     <Code2 size={21} />
                   </div>
-
                 </div>
-
               </div>
-
             </div>
 
             <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
-
               <div className="card-body">
-
                 <div className="flex items-center justify-between">
-
                   <div>
-
                     <p className="text-sm text-base-content/60">
                       Problems Solved
                     </p>
@@ -842,27 +747,38 @@ function Homepage() {
                     <p className="text-3xl font-bold mt-1">
                       {totalSolved}
                     </p>
-
                   </div>
 
                   <div className="p-3 rounded-xl bg-success/10 text-success">
                     <CheckCircle2 size={21} />
                   </div>
-
                 </div>
 
-              </div>
+                {solvedLoading && (
+                  <p className="text-xs text-base-content/50 mt-2">
+                    Updating progress...
+                  </p>
+                )}
 
+                {solvedError && (
+                  <button
+                    type="button"
+                    onClick={
+                      fetchSolvedProblems
+                    }
+                    className="text-xs text-error mt-2 flex items-center gap-1 hover:underline"
+                  >
+                    <RefreshCw size={12} />
+                    Retry progress
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
-
               <div className="card-body">
-
                 <div className="flex items-center justify-between">
-
                   <div>
-
                     <p className="text-sm text-base-content/60">
                       Completion
                     </p>
@@ -870,32 +786,27 @@ function Homepage() {
                     <p className="text-3xl font-bold mt-1">
                       {completionPercentage}%
                     </p>
-
                   </div>
 
                   <div className="p-3 rounded-xl bg-warning/10 text-warning">
                     <Target size={21} />
                   </div>
-
                 </div>
 
+                <progress
+                  className="progress progress-warning w-full mt-3"
+                  value={completionPercentage}
+                  max="100"
+                />
               </div>
-
             </div>
-
           </section>
-
         )}
 
-        {/* Problems Header */}
         <section className="mb-5">
-
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-
             <div>
-
               <div className="flex items-center gap-2 mb-1">
-
                 <Trophy
                   size={19}
                   className="text-primary"
@@ -904,41 +815,54 @@ function Homepage() {
                 <h2 className="text-2xl font-bold">
                   Problems
                 </h2>
-
               </div>
 
               <p className="text-base-content/60 text-sm">
                 Practice coding problems and track your progress.
               </p>
-
             </div>
 
             <div className="text-sm text-base-content/50">
-
               Showing{' '}
-
               <span className="font-semibold text-base-content">
                 {filteredProblems.length}
               </span>{' '}
-
               of {pagination.totalProblems}
-
             </div>
-
           </div>
-
         </section>
 
-        {/* Filters */}
+        {solvedError && user && (
+          <div className="alert alert-warning mb-4">
+            <AlertCircle size={18} />
+
+            <div className="flex-1">
+              <span>{solvedError}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={fetchSolvedProblems}
+              disabled={solvedLoading}
+              className="btn btn-sm"
+            >
+              <RefreshCw
+                size={14}
+                className={
+                  solvedLoading
+                    ? 'animate-spin'
+                    : ''
+                }
+              />
+              Retry
+            </button>
+          </div>
+        )}
+
         <section className="card bg-base-100 border border-base-300 shadow-sm mb-6">
-
           <div className="card-body">
-
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-
-              {/* Search */}
               <label className="input input-bordered flex items-center gap-2 w-full sm:w-72">
-
                 <Search
                   size={17}
                   className="text-base-content/50"
@@ -949,21 +873,20 @@ function Homepage() {
                   className="grow"
                   placeholder="Search problems..."
                   value={searchQuery}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     handleSearchChange(
-                      e.target.value
+                      event.target.value
                     )
                   }
                 />
-
               </label>
 
               <select
                 className="select select-bordered"
                 value={filters.status}
-                onChange={(e) =>
+                onChange={(event) =>
                   handleStatusChange(
-                    e.target.value
+                    event.target.value
                   )
                 }
               >
@@ -978,15 +901,14 @@ function Homepage() {
                 <option value="unsolved">
                   Unsolved
                 </option>
-
               </select>
 
               <select
                 className="select select-bordered"
                 value={filters.difficulty}
-                onChange={(e) =>
+                onChange={(event) =>
                   handleDifficultyChange(
-                    e.target.value
+                    event.target.value
                   )
                 }
               >
@@ -1005,15 +927,14 @@ function Homepage() {
                 <option value="hard">
                   Hard
                 </option>
-
               </select>
 
               <select
                 className="select select-bordered"
                 value={filters.tag}
-                onChange={(e) =>
+                onChange={(event) =>
                   handleTagChange(
-                    e.target.value
+                    event.target.value
                   )
                 }
               >
@@ -1031,50 +952,71 @@ function Homepage() {
                     </option>
                   )
                 )}
-
               </select>
 
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={
-                  resetFilters
-                }
+                onClick={resetFilters}
+                disabled={problemsLoading}
               >
                 Reset
               </button>
-
             </div>
-
           </div>
-
         </section>
 
-        {/* Problems */}
         <section className="relative">
-
           {problemsLoading && (
-            <div className="absolute inset-0 z-10 bg-base-200/60 backdrop-blur-[1px] flex items-start justify-center pt-8">
-
+            <div className="absolute inset-0 z-10 bg-base-200/60 backdrop-blur-[1px] flex items-start justify-center pt-8 pointer-events-none">
               <div className="bg-base-100 border border-base-300 shadow-lg rounded-xl px-5 py-3 flex items-center gap-3">
-
                 <span className="loading loading-spinner loading-sm" />
 
                 <span className="text-sm font-medium">
-                  Loading problems...
+                  Updating problems...
                 </span>
-
               </div>
-
             </div>
           )}
 
-          {filteredProblems.length === 0 ? (
-
-            <div className="card bg-base-100 shadow-xl">
-
+          {problemsError ? (
+            <div className="card bg-base-100 border border-error/30 shadow-sm">
               <div className="card-body items-center text-center py-12">
+                <div className="w-12 h-12 rounded-full bg-error/10 text-error flex items-center justify-center mb-2">
+                  <AlertCircle size={24} />
+                </div>
 
+                <h2 className="card-title">
+                  Unable to load problems
+                </h2>
+
+                <p className="text-base-content/60 max-w-md">
+                  {problemsError}
+                </p>
+
+                <button
+                  type="button"
+                  className="btn btn-primary mt-3"
+                  onClick={() =>
+                    fetchProblems(false)
+                  }
+                  disabled={problemsLoading}
+                >
+                  <RefreshCw
+                    size={16}
+                    className={
+                      problemsLoading
+                        ? 'animate-spin'
+                        : ''
+                    }
+                  />
+                  Try Again
+                </button>
+              </div>
+            </div>
+          ) : filteredProblems.length === 0 ? (
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body items-center text-center py-12">
                 <h2 className="card-title">
                   No problems found
                 </h2>
@@ -1086,24 +1028,16 @@ function Homepage() {
                 <button
                   type="button"
                   className="btn btn-primary mt-2"
-                  onClick={
-                    resetFilters
-                  }
+                  onClick={resetFilters}
                 >
                   Clear Filters
                 </button>
-
               </div>
-
             </div>
-
           ) : (
-
             <div className="grid gap-4">
-
               {filteredProblems.map(
                 (problem) => {
-
                   const problemTags =
                     Array.isArray(
                       problem.tags
@@ -1119,18 +1053,15 @@ function Homepage() {
                     );
 
                   return (
-
                     <div
-                      key={problem._id}
+                      key={
+                        problem._id
+                      }
                       className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                     >
-
                       <div className="card-body">
-
                         <div className="flex items-center justify-between gap-4">
-
                           <h3 className="card-title">
-
                             <NavLink
                               to={
                                 user
@@ -1143,28 +1074,22 @@ function Homepage() {
                                 problem.title
                               }
                             </NavLink>
-
                           </h3>
 
                           {user &&
                             isSolved && (
-
                               <div className="badge badge-success gap-2">
-
                                 <CheckCircle2
-                                  size={14}
+                                  size={
+                                    14
+                                  }
                                 />
-
                                 Solved
-
                               </div>
-
                             )}
-
                         </div>
 
                         <div className="flex flex-wrap gap-2 mt-2">
-
                           <div
                             className={`badge ${getDifficultyBadgeColor(
                               problem.difficulty
@@ -1177,49 +1102,35 @@ function Homepage() {
 
                           {problemTags.map(
                             (tag) => (
-
                               <div
-                                key={tag}
+                                key={
+                                  tag
+                                }
                                 className="badge badge-info badge-outline"
                               >
                                 {tag}
                               </div>
-
                             )
                           )}
-
                         </div>
 
                         {!user && (
-
                           <div className="mt-3 text-sm text-base-content/50">
                             Login to open and solve this problem.
                           </div>
-
                         )}
-
                       </div>
-
                     </div>
-
                   );
                 }
               )}
-
             </div>
-
           )}
-
         </section>
 
-        {/* Pagination */}
-        {pagination.totalPages >
-          1 && (
-
+        {pagination.totalPages > 1 && (
           <section className="flex justify-center mt-8 mb-6">
-
             <div className="join">
-
               <button
                 type="button"
                 className="join-item btn btn-sm"
@@ -1233,19 +1144,15 @@ function Homepage() {
                   )
                 }
               >
-                <ChevronLeft
-                  size={16}
-                />
+                <ChevronLeft size={16} />
 
                 <span className="hidden sm:inline">
                   Previous
                 </span>
-
               </button>
 
               {pageNumbers.map(
                 (page) => (
-
                   <button
                     key={page}
                     type="button"
@@ -1266,7 +1173,6 @@ function Homepage() {
                   >
                     {page}
                   </button>
-
                 )
               )}
 
@@ -1287,25 +1193,19 @@ function Homepage() {
                   Next
                 </span>
 
-                <ChevronRight
-                  size={16}
-                />
-
+                <ChevronRight size={16} />
               </button>
-
             </div>
-
           </section>
-
         )}
-
       </main>
-
     </div>
   );
 }
 
-function CodeNovaLogo({ size = 22 }) {
+function CodeNovaLogo({
+  size = 22,
+}) {
   return (
     <div
       className="rounded-xl bg-primary/10 text-primary flex items-center justify-center"
