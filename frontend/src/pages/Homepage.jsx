@@ -387,6 +387,23 @@ function Homepage() {
       ?.toUpperCase() || ''
   }` || 'U';
 
+  /*
+   * CHANGED PROFILE IMAGE LOGIC
+   *
+   * Profile.jsx saves the uploaded image in:
+   * localStorage -> "codenova-profile-image"
+   *
+   * So Homepage first checks localStorage.
+   * If nothing exists there, it falls back
+   * to user.profileImage.
+   */
+  const profileImage =
+    typeof window !== 'undefined'
+      ? localStorage.getItem(
+          'codenova-profile-image'
+        ) || user?.profileImage
+      : user?.profileImage;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
@@ -525,10 +542,20 @@ function Homepage() {
                   className="btn btn-ghost gap-2"
                 >
                   <div className="avatar placeholder">
-                    <div className="bg-primary text-primary-content rounded-full w-8">
-                      <span className="font-bold">
-                        {userInitials}
-                      </span>
+                    <div className="rounded-full w-8 h-8 overflow-hidden">
+                      {profileImage ? (
+                        <img
+                          src={profileImage}
+                          alt={`${user.firstName || 'User'} profile`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="bg-primary text-primary-content w-full h-full flex items-center justify-center">
+                          <span className="font-bold">
+                            {userInitials}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
