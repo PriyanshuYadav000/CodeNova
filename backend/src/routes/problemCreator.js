@@ -14,7 +14,8 @@ const {
   getAllProblem,
   solvedAllProblembyUser,
   submittedProblem,
-  getAdminProblemById
+  getAdminProblemById,
+  getDashboardStats,
 } = require("../controllers/userProblem");
 
 const adminMiddleware = require("../middleware/adminMiddleware");
@@ -76,6 +77,13 @@ problemRouter.get(
   userMiddleware,
   generalRateLimiter,
   asyncHandler(solvedAllProblembyUser)
+);
+
+problemRouter.get(
+  "/dashboardStats",
+  userMiddleware,
+  generalRateLimiter,
+  asyncHandler(getDashboardStats)
 );
 
 problemRouter.get(

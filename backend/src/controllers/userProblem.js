@@ -707,6 +707,147 @@ const submittedProblem = async (req, res, next) => {
   }
 };
 
+const getDashboardStats = async (req, res, next) => {
+  try {
+    const userId = req.result.id;
+
+    const [
+      totalProblems,
+      totalSolved,
+      easyTotal,
+      mediumTotal,
+      hardTotal,
+      easySolved,
+      mediumSolved,
+      hardSolved,
+      recentSubmissions,
+    ] = await Promise.all([
+      prisma.problem.count(),
+
+      prisma.userSolvedProblem.count({
+        where: {
+          userId,
+        },
+      }),
+
+      prisma.problem.count({
+        where: {
+          difficulty: "easy",
+        },
+      }),
+
+      prisma.problem.count({
+        where: {
+          difficulty: "medium",
+        },
+      }),
+
+      prisma.problem.count({
+        where: {
+          difficulty: "hard",
+        },
+      }),
+
+      prisma.userSolvedProblem.count({
+        where: {
+          userId,
+          problem: {
+            difficulty: "easy",
+          },
+        },
+      }),
+
+      prisma.userSolvedProblem.count({
+        where: {
+          userId,
+          problem: {
+            difficulty: "medium",
+          },
+        },
+      }),
+
+      prisma.userSolvedProblem.count({
+        where: {
+          userId,
+          problem: {
+            difficulty: "hard",
+          },
+        },
+      }),
+
+      prisma.submission.findMany({
+        where: {
+          userId,
+          status: "accepted",
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        distinct: ["problemId"],
+        take: 6,
+        select: {
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              difficulty: true,
+              problemTags: {
+                include: {
+                  tag: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalUnsolved = Math.max(
+      totalProblems - totalSolved,
+      0
+    );
+
+    const completionPercentage =
+      totalProblems > 0
+        ? Math.round(
+            (totalSolved / totalProblems) * 100
+          )
+        : 0;
+
+    res.status(200).json({
+      totalProblems,
+      totalSolved,
+      totalUnsolved,
+      completionPercentage,
+
+      difficulty: {
+        easy: {
+          total: easyTotal,
+          solved: easySolved,
+        },
+
+        medium: {
+          total: mediumTotal,
+          solved: mediumSolved,
+        },
+
+        hard: {
+          total: hardTotal,
+          solved: hardSolved,
+        },
+      },
+
+      recentSolvedProblems:
+        recentSubmissions.map(
+          ({ problem }) =>
+            toProblemSummary(problem)
+        ),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getAdminProblemById = async (req, res, next) => {
   const { id } = req.params;
 
@@ -825,4 +966,5 @@ module.exports = {
   getAllProblem,
   solvedAllProblembyUser,
   submittedProblem,
+  getDashboardStats,
 };
