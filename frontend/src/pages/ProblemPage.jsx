@@ -4,9 +4,17 @@ import { NavLink, useParams } from 'react-router';
 import { useSelector } from 'react-redux';
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   ChevronLeft,
-  LogOut,
+  Code2,
+  Expand,
+  Minimize2,
+  Play,
+  RotateCcw,
+  Send,
+  Settings2,
+  Sparkles,
 } from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
@@ -41,7 +49,10 @@ const normalizeLanguage = (language) => {
   return value;
 };
 
-const getInitialCode = (problemData, selectedLanguage) => {
+const getInitialCode = (
+  problemData,
+  selectedLanguage
+) => {
   if (!problemData?.startCode?.length) {
     return '';
   }
@@ -49,11 +60,12 @@ const getInitialCode = (problemData, selectedLanguage) => {
   const normalizedSelectedLanguage =
     normalizeLanguage(selectedLanguage);
 
-  const matchingCode = problemData.startCode.find(
-    (item) =>
-      normalizeLanguage(item.language) ===
-      normalizedSelectedLanguage
-  );
+  const matchingCode =
+    problemData.startCode.find(
+      (item) =>
+        normalizeLanguage(item.language) ===
+        normalizedSelectedLanguage
+    );
 
   return matchingCode?.initialCode || '';
 };
@@ -68,13 +80,48 @@ const getErrorMessage = (error, fallback) => {
   );
 };
 
+const getDifficultyColor = (difficulty) => {
+  switch (difficulty?.toLowerCase()) {
+    case 'easy':
+      return 'text-success';
+
+    case 'medium':
+      return 'text-warning';
+
+    case 'hard':
+      return 'text-error';
+
+    default:
+      return 'text-base-content/60';
+  }
+};
+
+const getDifficultyBadge = (difficulty) => {
+  switch (difficulty?.toLowerCase()) {
+    case 'easy':
+      return 'badge-success';
+
+    case 'medium':
+      return 'badge-warning';
+
+    case 'hard':
+      return 'badge-error';
+
+    default:
+      return 'badge-neutral';
+  }
+};
+
 const ProblemPage = () => {
   const { problemId } = useParams();
 
-  const { user } = useSelector((state) => state.auth);
+  const { user } = useSelector(
+    (state) => state.auth
+  );
+
+  const editorRef = useRef(null);
 
   const [problem, setProblem] = useState(null);
-
   const [isSolved, setIsSolved] = useState(false);
 
   const [selectedLanguage, setSelectedLanguage] =
@@ -82,18 +129,17 @@ const ProblemPage = () => {
 
   const [code, setCode] = useState('');
 
-  // Only used while initially loading the problem.
   const [pageLoading, setPageLoading] =
     useState(true);
 
-  // Separate loading states for Run and Submit.
   const [isRunning, setIsRunning] =
     useState(false);
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
-  const [runResult, setRunResult] = useState(null);
+  const [runResult, setRunResult] =
+    useState(null);
 
   const [submitResult, setSubmitResult] =
     useState(null);
@@ -107,11 +153,14 @@ const ProblemPage = () => {
   const [pageError, setPageError] =
     useState('');
 
-  const editorRef = useRef(null);
+  const [editorFullscreen, setEditorFullscreen] =
+    useState(false);
 
-  // ============================================================
-  // FETCH PROBLEM
-  // ============================================================
+  const [editorFontSize, setEditorFontSize] =
+    useState(14);
+
+  const isBusy =
+    isRunning || isSubmitting;
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -133,22 +182,30 @@ const ProblemPage = () => {
 
         setProblem(problemData);
 
-        const solvedResponse = await axiosClient.get(
-          '/problem/problemSolvedByUser'
-        );
+        const solvedResponse =
+          await axiosClient.get(
+            '/problem/problemSolvedByUser'
+          );
 
-        const solvedProblems = Array.isArray(solvedResponse.data)
-          ? solvedResponse.data
+        const solvedProblems =
+          Array.isArray(
+            solvedResponse.data
+          )
+            ? solvedResponse.data
             : [];
 
-        const alreadySolved = solvedProblems.some(
-          (solvedProblem) =>
-            solvedProblem._id === problemData._id
-        );
+        const alreadySolved =
+          solvedProblems.some(
+            (solvedProblem) =>
+              solvedProblem._id ===
+              problemData._id
+          );
 
         setIsSolved(alreadySolved);
 
-        setSelectedLanguage('javascript');
+        setSelectedLanguage(
+          'javascript'
+        );
 
         setCode(
           getInitialCode(
@@ -156,6 +213,13 @@ const ProblemPage = () => {
             'javascript'
           )
         );
+
+        setRunResult(null);
+        setSubmitResult(null);
+        setActiveLeftTab(
+          'description'
+        );
+        setActiveRightTab('code');
       } catch (error) {
         console.error(
           'Error fetching problem:',
@@ -181,51 +245,67 @@ const ProblemPage = () => {
     }
   }, [problemId]);
 
-  // ============================================================
-  // CHANGE LANGUAGE
-  // ============================================================
-
   useEffect(() => {
     if (!problem) {
       return;
     }
 
-    const initialCode = getInitialCode(
-      problem,
-      selectedLanguage
-    );
+    const initialCode =
+      getInitialCode(
+        problem,
+        selectedLanguage
+      );
 
     setCode(initialCode);
 
     setRunResult(null);
     setSubmitResult(null);
-
     setActiveRightTab('code');
-  }, [selectedLanguage]);
-
-  // ============================================================
-  // EDITOR
-  // ============================================================
+  }, [selectedLanguage, problem]);
 
   const handleEditorChange = (value) => {
     setCode(value || '');
   };
 
-  const handleEditorDidMount = (editor) => {
+  const handleEditorDidMount = (
+    editor
+  ) => {
     editorRef.current = editor;
   };
 
-  const handleLanguageChange = (language) => {
-    if (isRunning || isSubmitting) {
+  const handleLanguageChange = (
+    language
+  ) => {
+    if (isBusy) {
       return;
     }
 
     setSelectedLanguage(language);
   };
 
-  // ============================================================
-  // RUN CODE
-  // ============================================================
+  const handleResetCode = () => {
+    if (!problem || isBusy) {
+      return;
+    }
+
+    const initialCode =
+      getInitialCode(
+        problem,
+        selectedLanguage
+      );
+
+    setCode(initialCode);
+
+    setRunResult(null);
+    setSubmitResult(null);
+    setActiveRightTab('code');
+  };
+
+  const handleEditorFullscreen = () => {
+    setEditorFullscreen(
+      (previous) => !previous
+    );
+  };
 
   const handleRun = async () => {
     if (!problem) {
@@ -250,29 +330,39 @@ const ProblemPage = () => {
     setRunResult(null);
 
     try {
-      const response = await axiosClient.post(
-        `/submission/run/${problemId}`,
-        {
-          code,
-          language: selectedLanguage,
-        }
-      );
+      const response =
+        await axiosClient.post(
+          `/submission/run/${problemId}`,
+          {
+            code,
+            language:
+              selectedLanguage,
+          }
+        );
 
       const result = response.data;
 
       setRunResult({
-        success: Boolean(result?.success),
-        testCases: Array.isArray(
-          result?.testCases
-        )
-          ? result.testCases
-          : [],
-        runtime: result?.runtime ?? 0,
-        memory: result?.memory ?? 0,
-        error: result?.error || null,
+        success: Boolean(
+          result?.success
+        ),
+        testCases:
+          Array.isArray(
+            result?.testCases
+          )
+            ? result.testCases
+            : [],
+        runtime:
+          result?.runtime ?? 0,
+        memory:
+          result?.memory ?? 0,
+        error:
+          result?.error || null,
       });
 
-      setActiveRightTab('testcase');
+      setActiveRightTab(
+        'testcase'
+      );
     } catch (error) {
       console.error(
         'Error running code:',
@@ -288,179 +378,171 @@ const ProblemPage = () => {
         testCases: [],
       });
 
-      setActiveRightTab('testcase');
+      setActiveRightTab(
+        'testcase'
+      );
     } finally {
       setIsRunning(false);
     }
   };
 
-  // ============================================================
-  // SUBMIT CODE
-  // ============================================================
-
-  const handleSubmitCode = async () => {
-  if (!problem) {
-    return;
-  }
-
-  // Prevent blank submission.
-  if (!code.trim()) {
-    setSubmitResult({
-      accepted: false,
-      error: 'Please write some code before submitting.',
-      passedTestCases: 0,
-      totalTestCases: 0,
-      runtime: 0,
-      memory: 0,
-    });
-
-    setRunResult(null);
-    setActiveRightTab('result');
-
-    return;
-  }
-
-  setIsSubmitting(true);
-  setSubmitResult(null);
-
-  try {
-    const response = await axiosClient.post(
-      `/submission/submit/${problemId}`,
-      {
-        code,
-        language: selectedLanguage,
+  const handleSubmitCode =
+    async () => {
+      if (!problem) {
+        return;
       }
-    );
 
-    const result = response.data;
+      if (!code.trim()) {
+        setSubmitResult({
+          accepted: false,
+          error:
+            'Please write some code before submitting.',
+          passedTestCases: 0,
+          totalTestCases: 0,
+          runtime: 0,
+          memory: 0,
+        });
 
-    const accepted = Boolean(result?.accepted);
+        setRunResult(null);
+        setActiveRightTab('result');
 
-    setSubmitResult({
-      accepted,
-      error: result?.error || null,
-      passedTestCases:
-        result?.passedTestCases ?? 0,
-      totalTestCases:
-        result?.totalTestCases ?? 0,
-      runtime: result?.runtime ?? 0,
-      memory: result?.memory ?? 0,
-    });
+        return;
+      }
 
-    // Immediately update solved state in the UI.
-    if (accepted) {
-      setIsSolved(true);
-    }
+      setIsSubmitting(true);
+      setSubmitResult(null);
 
-    setActiveRightTab('result');
-  } catch (error) {
-    console.error(
-      'Error submitting code:',
-      error.response?.data || error
-    );
+      try {
+        const response =
+          await axiosClient.post(
+            `/submission/submit/${problemId}`,
+            {
+              code,
+              language:
+                selectedLanguage,
+            }
+          );
 
-    setSubmitResult({
-      accepted: false,
-      error: getErrorMessage(
-        error,
-        'Unable to submit code.'
-      ),
-      passedTestCases: 0,
-      totalTestCases: 0,
-      runtime: 0,
-      memory: 0,
-    });
+        const result = response.data;
 
-    setActiveRightTab('result');
-  } finally {
-    setIsSubmitting(false);
-  }
-  };
+        const accepted = Boolean(
+          result?.accepted
+        );
 
-  // ============================================================
-  // MONACO LANGUAGE
-  // ============================================================
+        setSubmitResult({
+          accepted,
+          error:
+            result?.error || null,
+          passedTestCases:
+            result?.passedTestCases ??
+            0,
+          totalTestCases:
+            result?.totalTestCases ??
+            0,
+          runtime:
+            result?.runtime ?? 0,
+          memory:
+            result?.memory ?? 0,
+        });
 
-  const getLanguageForMonaco = (language) => {
-    switch (normalizeLanguage(language)) {
-      case 'javascript':
-        return 'javascript';
+        if (accepted) {
+          setIsSolved(true);
+        }
 
-      case 'java':
-        return 'java';
+        setActiveRightTab('result');
+      } catch (error) {
+        console.error(
+          'Error submitting code:',
+          error.response?.data || error
+        );
 
-      case 'cpp':
-        return 'cpp';
+        setSubmitResult({
+          accepted: false,
+          error: getErrorMessage(
+            error,
+            'Unable to submit code.'
+          ),
+          passedTestCases: 0,
+          totalTestCases: 0,
+          runtime: 0,
+          memory: 0,
+        });
 
-      default:
-        return 'plaintext';
-    }
-  };
+        setActiveRightTab('result');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
 
-  // ============================================================
-  // DIFFICULTY COLOR
-  // ============================================================
+  const getLanguageForMonaco =
+    (language) => {
+      switch (
+        normalizeLanguage(language)
+      ) {
+        case 'javascript':
+          return 'javascript';
 
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty?.toLowerCase()) {
-      case 'easy':
-        return 'text-success';
+        case 'java':
+          return 'java';
 
-      case 'medium':
-        return 'text-warning';
+        case 'cpp':
+          return 'cpp';
 
-      case 'hard':
-        return 'text-error';
-
-      default:
-        return 'text-base-content/60';
-    }
-  };
-
-  // ============================================================
-  // PAGE LOADING
-  // ============================================================
+        default:
+          return 'plaintext';
+      }
+    };
 
   if (pageLoading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg"></span>
+        <span className="loading loading-spinner loading-lg" />
       </div>
     );
   }
 
-  // ============================================================
-  // PAGE ERROR
-  // ============================================================
-
   if (pageError || !problem) {
     return (
       <div className="min-h-screen bg-base-200">
+
         <header className="navbar bg-base-100 border-b border-base-300 px-4 shadow-sm">
+
           <div className="flex-1">
+
             <NavLink
               to="/"
-              className="btn btn-ghost text-xl font-bold"
+              className="flex items-center gap-2 font-bold text-xl"
             >
+              <Code2
+                size={22}
+                className="text-primary"
+              />
+
               CodeNova
             </NavLink>
+
           </div>
 
-          <div className="flex-none">
-            <span className="text-sm font-medium">
-              {user?.firstName}
-            </span>
+          <div className="flex-none text-sm">
+            {user?.firstName}
           </div>
+
         </header>
 
         <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
+
           <div className="card bg-base-100 shadow-xl max-w-xl w-full">
+
             <div className="card-body">
+
               <div className="flex items-center gap-3">
+
                 <AlertCircle className="text-error" />
+
                 <h2 className="card-title text-error">
                   Unable to load problem
                 </h2>
+
               </div>
 
               <p className="text-base-content/70">
@@ -469,105 +551,173 @@ const ProblemPage = () => {
               </p>
 
               <div className="card-actions justify-end mt-4">
+
                 <NavLink
                   to="/"
                   className="btn btn-primary"
                 >
-                  <ChevronLeft size={18} />
+                  <ChevronLeft
+                    size={18}
+                  />
                   Back to Problems
                 </NavLink>
+
               </div>
+
             </div>
+
           </div>
+
         </main>
+
       </div>
     );
   }
 
-  const isBusy =
-    isRunning || isSubmitting;
-
   return (
-    <div className="h-screen flex flex-col bg-base-100">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+    <div className="h-screen flex flex-col bg-base-100 overflow-hidden">
 
-      <header className="navbar min-h-14 h-14 bg-base-100 border-b border-base-300 px-4 shadow-sm">
-        {/* CodeNova → Homepage */}
-        <div className="flex-1">
+      {/* Header */}
+      <header className="h-14 shrink-0 bg-base-100 border-b border-base-300 flex items-center justify-between px-4">
+
+        <div className="flex items-center gap-4">
+
           <NavLink
             to="/"
-            className="btn btn-ghost text-xl font-bold gap-2"
+            className="flex items-center gap-2 font-bold text-lg hover:text-primary transition-colors"
           >
-            <span>CodeNova</span>
+            <Code2
+              size={21}
+              className="text-primary"
+            />
+
+            CodeNova
           </NavLink>
+
+          <div className="h-5 w-px bg-base-300" />
+
+          <NavLink
+            to="/"
+            className="btn btn-ghost btn-sm gap-2"
+          >
+            <ArrowLeft size={16} />
+            Problems
+          </NavLink>
+
         </div>
 
-        {/* User */}
-        <div className="flex-none">
-          <div className="dropdown dropdown-end">
-            <div
-              tabIndex={0}
-              role="button"
-              className="btn btn-ghost gap-2"
-            >
-              <div className="avatar placeholder">
-                <div className="bg-primary text-primary-content rounded-full w-8">
-                  <span>
-                    {user?.firstName
-                      ?.charAt(0)
-                      ?.toUpperCase() || 'U'}
-                  </span>
-                </div>
-              </div>
+        <div className="flex items-center gap-3">
 
-              <span className="hidden sm:inline">
-                {user?.firstName || 'User'}
+          <div className="hidden sm:flex items-center gap-2 text-sm text-base-content/60">
+
+            <span>
+              {user?.firstName}
+            </span>
+
+          </div>
+
+          <div className="avatar placeholder">
+
+            <div className="bg-primary text-primary-content rounded-full w-8">
+
+              <span className="font-semibold">
+                {user?.firstName
+                  ?.charAt(0)
+                  ?.toUpperCase() ||
+                  'U'}
               </span>
+
             </div>
 
-            <ul className="mt-3 p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52 z-50">
-              <li>
-                <NavLink to="/dashboard">
-                  Dashboard
-                </NavLink>
-              </li>
-
-              <li>
-                <NavLink to="/">
-                  Problems
-                </NavLink>
-              </li>
-
-              {user?.role === 'admin' && (
-                <li>
-                  <NavLink to="/admin">
-                    Admin
-                  </NavLink>
-                </li>
-              )}
-            </ul>
           </div>
+
         </div>
+
       </header>
 
-      {/* ======================================================
-          MAIN CONTENT
-      ====================================================== */}
-
+      {/* Workspace */}
       <div className="flex-1 min-h-0 flex">
-        {/* ======================================================
-            LEFT PANEL
-        ====================================================== */}
 
-        <div className="w-1/2 flex flex-col border-r border-base-300">
+        {/* LEFT PANEL */}
+        <div
+          className={
+            editorFullscreen
+              ? 'hidden'
+              : 'w-1/2 flex flex-col border-r border-base-300'
+          }
+        >
+
+          {/* Problem Header */}
+          <div className="shrink-0 p-5 border-b border-base-300 bg-base-100">
+
+            <div className="flex items-start justify-between gap-4">
+
+              <div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+
+                  <h1 className="text-xl font-bold">
+                    {problem.title}
+                  </h1>
+
+                  {isSolved && (
+                    <span className="badge badge-success gap-1">
+                      <CheckCircle2
+                        size={13}
+                      />
+                      Solved
+                    </span>
+                  )}
+
+                </div>
+
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+
+                  <span
+                    className={`badge badge-sm ${getDifficultyBadge(
+                      problem.difficulty
+                    )}`}
+                  >
+                    {problem.difficulty
+                      ? problem.difficulty
+                          .charAt(0)
+                          .toUpperCase() +
+                        problem.difficulty.slice(
+                          1
+                        )
+                      : 'Unknown'}
+                  </span>
+
+                  {Array.isArray(
+                    problem.tags
+                  ) &&
+                    problem.tags.map(
+                      (tag) => (
+                        <span
+                          key={tag}
+                          className="badge badge-outline badge-sm"
+                        >
+                          {tag}
+                        </span>
+                      )
+                    )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
           {/* Left Tabs */}
-          <div className="tabs tabs-bordered bg-base-200 px-4">
+          <div className="tabs tabs-bordered bg-base-100 px-4 shrink-0 overflow-x-auto">
+
             <button
               type="button"
-              className={`tab ${
-                activeLeftTab === 'description'
+              className={`tab whitespace-nowrap ${
+                activeLeftTab ===
+                'description'
                   ? 'tab-active'
                   : ''
               }`}
@@ -582,13 +732,16 @@ const ProblemPage = () => {
 
             <button
               type="button"
-              className={`tab ${
-                activeLeftTab === 'editorial'
+              className={`tab whitespace-nowrap ${
+                activeLeftTab ===
+                'editorial'
                   ? 'tab-active'
                   : ''
               }`}
               onClick={() =>
-                setActiveLeftTab('editorial')
+                setActiveLeftTab(
+                  'editorial'
+                )
               }
             >
               Editorial
@@ -596,13 +749,16 @@ const ProblemPage = () => {
 
             <button
               type="button"
-              className={`tab ${
-                activeLeftTab === 'solutions'
+              className={`tab whitespace-nowrap ${
+                activeLeftTab ===
+                'solutions'
                   ? 'tab-active'
                   : ''
               }`}
               onClick={() =>
-                setActiveLeftTab('solutions')
+                setActiveLeftTab(
+                  'solutions'
+                )
               }
             >
               Solutions
@@ -610,8 +766,9 @@ const ProblemPage = () => {
 
             <button
               type="button"
-              className={`tab ${
-                activeLeftTab === 'submissions'
+              className={`tab whitespace-nowrap ${
+                activeLeftTab ===
+                'submissions'
                   ? 'tab-active'
                   : ''
               }`}
@@ -626,79 +783,46 @@ const ProblemPage = () => {
 
             <button
               type="button"
-              className={`tab ${
-                activeLeftTab === 'chatAI'
+              className={`tab whitespace-nowrap ${
+                activeLeftTab ===
+                'chatAI'
                   ? 'tab-active'
                   : ''
               }`}
               onClick={() =>
-                setActiveLeftTab('chatAI')
+                setActiveLeftTab(
+                  'chatAI'
+                )
               }
             >
-              ChatAI
+              AI Chat
             </button>
+
           </div>
 
           {/* Left Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {/* DESCRIPTION */}
+
             {activeLeftTab ===
               'description' && (
               <div>
-                <div className="flex flex-wrap items-center gap-3 mb-6">
-                  <h1 className="text-2xl font-bold">
-                    {problem.title}
-                  </h1>
-                  {isSolved && (
-                      <div className="badge badge-success gap-1">
-                        <CheckCircle2 size={14} />
-                        Solved
-                      </div>
-                  )}
-                  <div
-                    className={`badge badge-outline ${getDifficultyColor(
-                      problem.difficulty
-                    )}`}
-                  >
-                    {problem.difficulty
-                      ? problem.difficulty
-                          .charAt(0)
-                          .toUpperCase() +
-                        problem.difficulty.slice(
-                          1
-                        )
-                      : ''}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(
-                      problem.tags
-                    ) &&
-                      problem.tags.map(
-                        (tag) => (
-                          <div
-                            key={tag}
-                            className="badge badge-primary"
-                          >
-                            {tag}
-                          </div>
-                        )
-                      )}
-                  </div>
-                </div>
 
                 <div className="prose max-w-none">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
+
+                  <div className="whitespace-pre-wrap text-sm leading-7 text-base-content/85">
                     {problem.description}
                   </div>
+
                 </div>
 
                 <div className="mt-8">
+
                   <h3 className="text-lg font-semibold mb-4">
-                    Examples:
+                    Examples
                   </h3>
 
                   <div className="space-y-4">
+
                     {Array.isArray(
                       problem.visibleTestCases
                     ) &&
@@ -709,91 +833,131 @@ const ProblemPage = () => {
                         ) => (
                           <div
                             key={index}
-                            className="bg-base-200 p-4 rounded-lg"
+                            className="border border-base-300 rounded-xl overflow-hidden"
                           >
-                            <h4 className="font-semibold mb-2">
+
+                            <div className="px-4 py-3 bg-base-200 border-b border-base-300 font-semibold text-sm">
                               Example{' '}
-                              {index + 1}:
-                            </h4>
-
-                            <div className="space-y-2 text-sm font-mono">
-                              <div>
-                                <strong>
-                                  Input:
-                                </strong>{' '}
-                                <span className="whitespace-pre-wrap">
-                                  {
-                                    example.input
-                                  }
-                                </span>
-                              </div>
-
-                              <div>
-                                <strong>
-                                  Output:
-                                </strong>{' '}
-                                <span className="whitespace-pre-wrap">
-                                  {
-                                    example.output
-                                  }
-                                </span>
-                              </div>
-
-                              <div>
-                                <strong>
-                                  Explanation:
-                                </strong>{' '}
-                                <span className="whitespace-pre-wrap">
-                                  {example.explanation ||
-                                    'No explanation provided.'}
-                                </span>
-                              </div>
+                              {index + 1}
                             </div>
+
+                            <div className="p-4 space-y-4 text-sm">
+
+                              <div>
+
+                                <div className="text-xs uppercase tracking-wide text-base-content/50 mb-1">
+                                  Input
+                                </div>
+
+                                <pre className="bg-base-200 rounded-lg p-3 overflow-x-auto">
+                                  <code>
+                                    {
+                                      example.input
+                                    }
+                                  </code>
+                                </pre>
+
+                              </div>
+
+                              <div>
+
+                                <div className="text-xs uppercase tracking-wide text-base-content/50 mb-1">
+                                  Output
+                                </div>
+
+                                <pre className="bg-base-200 rounded-lg p-3 overflow-x-auto">
+                                  <code>
+                                    {
+                                      example.output
+                                    }
+                                  </code>
+                                </pre>
+
+                              </div>
+
+                              {example.explanation && (
+                                <div>
+
+                                  <div className="text-xs uppercase tracking-wide text-base-content/50 mb-1">
+                                    Explanation
+                                  </div>
+
+                                  <p className="text-base-content/70 leading-6">
+                                    {
+                                      example.explanation
+                                    }
+                                  </p>
+
+                                </div>
+                              )}
+
+                            </div>
+
                           </div>
                         )
                       )}
 
                     {!problem.visibleTestCases
                       ?.length && (
-                      <p className="text-base-content/60">
+                      <div className="text-sm text-base-content/50">
                         No visible examples
                         available.
-                      </p>
+                      </div>
                     )}
+
                   </div>
+
                 </div>
+
               </div>
             )}
 
-            {/* EDITORIAL */}
             {activeLeftTab ===
               'editorial' && (
-              <div className="prose max-w-none">
+              <div>
+
                 <h2 className="text-xl font-bold mb-4">
                   Editorial
                 </h2>
 
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  Editorial is here for
-                  the problem
+                <div className="rounded-xl border border-base-300 bg-base-100 p-5">
+
+                  <div className="flex items-center gap-2 text-primary mb-3">
+                    <Sparkles size={17} />
+
+                    <span className="font-semibold">
+                      Coming soon
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-base-content/60 leading-6">
+                    A detailed explanation
+                    and optimal approach for
+                    this problem will be
+                    available here.
+                  </p>
+
                 </div>
+
               </div>
             )}
 
-            {/* SOLUTIONS */}
             {activeLeftTab ===
               'solutions' && (
               <div>
+
                 <h2 className="text-xl font-bold mb-4">
                   Solutions
                 </h2>
 
                 <div className="space-y-6">
+
                   {Array.isArray(
                     problem.referenceSolution
                   ) &&
                   problem.referenceSolution
                     .length > 0 ? (
+
                     problem.referenceSolution.map(
                       (
                         solution,
@@ -801,50 +965,58 @@ const ProblemPage = () => {
                       ) => (
                         <div
                           key={`${solution.language}-${index}`}
-                          className="border border-base-300 rounded-lg"
+                          className="border border-base-300 rounded-xl overflow-hidden"
                         >
-                          <div className="bg-base-200 px-4 py-2 rounded-t-lg">
-                            <h3 className="font-semibold">
+
+                          <div className="bg-base-200 px-4 py-3 border-b border-base-300">
+
+                            <h3 className="font-semibold text-sm">
                               {
-                                problem.title
-                              }{' '}
-                              -{' '}
-                              {LANGUAGE_LABELS[
-                                normalizeLanguage(
-                                  solution.language
-                                )
-                              ] ||
+                                LANGUAGE_LABELS[
+                                  normalizeLanguage(
+                                    solution.language
+                                  )
+                                ] ||
                                 solution.language}
                             </h3>
+
                           </div>
 
                           <div className="p-4">
-                            <pre className="bg-base-300 p-4 rounded text-sm overflow-x-auto">
+
+                            <pre className="bg-base-300 rounded-lg p-4 text-sm overflow-x-auto">
                               <code>
                                 {
                                   solution.completeCode
                                 }
                               </code>
                             </pre>
+
                           </div>
+
                         </div>
                       )
                     )
+
                   ) : (
-                    <p className="text-gray-500">
+
+                    <div className="text-sm text-base-content/50">
                       Solutions will be
                       available after you
                       solve the problem.
-                    </p>
+                    </div>
+
                   )}
+
                 </div>
+
               </div>
             )}
 
-            {/* SUBMISSIONS */}
             {activeLeftTab ===
               'submissions' && (
               <div>
+
                 <h2 className="text-xl font-bold mb-4">
                   My Submissions
                 </h2>
@@ -852,43 +1024,55 @@ const ProblemPage = () => {
                 <SubmissionHistory
                   problemId={problemId}
                 />
+
               </div>
             )}
 
-            {/* CHAT AI */}
             {activeLeftTab ===
               'chatAI' && (
-              <div className="prose max-w-none">
-                <h2 className="text-xl font-bold mb-4">
-                  CHAT with AI
-                </h2>
+              <div>
 
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  <ChatAi />
+                <div className="flex items-center gap-2 mb-4">
+
+                  <BotIcon />
+
+                  <h2 className="text-xl font-bold">
+                    AI Coding Assistant
+                  </h2>
+
                 </div>
+
+                <ChatAi />
+
               </div>
             )}
+
           </div>
+
         </div>
 
-        {/* ======================================================
-            RIGHT PANEL
-        ====================================================== */}
+        {/* RIGHT PANEL */}
+        <div
+          className={
+            editorFullscreen
+              ? 'w-full flex flex-col'
+              : 'w-1/2 flex flex-col'
+          }
+        >
 
-        <div className="w-1/2 flex flex-col">
           {/* Right Tabs */}
-          <div className="tabs tabs-bordered bg-base-200 px-4">
+          <div className="tabs tabs-bordered bg-base-200 px-4 shrink-0">
+
             <button
               type="button"
               className={`tab ${
-                activeRightTab === 'code'
+                activeRightTab ===
+                'code'
                   ? 'tab-active'
                   : ''
               }`}
               onClick={() =>
-                setActiveRightTab(
-                  'code'
-                )
+                setActiveRightTab('code')
               }
             >
               Code
@@ -927,423 +1111,626 @@ const ProblemPage = () => {
             >
               Result
             </button>
+
           </div>
 
-          {/* Right Content */}
-          <div className="flex-1 min-h-0 flex flex-col">
-            {/* CODE */}
-            {activeRightTab ===
-              'code' && (
-              <div className="flex-1 min-h-0 flex flex-col">
-                {/* Language Selector */}
-                <div className="flex justify-between items-center p-4 border-b border-base-300">
-                  <div className="flex gap-2">
-                    {[
-                      'javascript',
-                      'java',
-                      'cpp',
-                    ].map(
-                      (language) => (
-                        <button
-                          key={
+          {/* Code */}
+          {activeRightTab ===
+            'code' && (
+            <div className="flex-1 min-h-0 flex flex-col">
+
+              {/* Editor Toolbar */}
+              <div className="h-12 shrink-0 border-b border-base-300 bg-base-100 flex items-center justify-between px-3">
+
+                <div className="flex items-center gap-1">
+
+                  {[
+                    'javascript',
+                    'java',
+                    'cpp',
+                  ].map(
+                    (language) => (
+                      <button
+                        key={language}
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() =>
+                          handleLanguageChange(
                             language
-                          }
-                          type="button"
-                          disabled={isBusy}
-                          className={`btn btn-sm ${
-                            selectedLanguage ===
+                          )
+                        }
+                        className={`btn btn-xs sm:btn-sm ${
+                          selectedLanguage ===
+                          language
+                            ? 'btn-primary'
+                            : 'btn-ghost'
+                        }`}
+                      >
+                        {
+                          LANGUAGE_LABELS[
                             language
-                              ? 'btn-primary'
-                              : 'btn-ghost'
-                          }`}
-                          onClick={() =>
-                            handleLanguageChange(
-                              language
-                            )
-                          }
-                        >
-                          {
-                            LANGUAGE_LABELS[
-                              language
-                            ]
-                          }
-                        </button>
+                          ]
+                        }
+                      </button>
+                    )
+                  )}
+
+                </div>
+
+                <div className="flex items-center gap-1">
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditorFontSize(
+                        (size) =>
+                          Math.max(
+                            11,
+                            size - 1
+                          )
                       )
-                    )}
-                  </div>
-                </div>
-
-                {/* Monaco Editor */}
-                <div className="flex-1 min-h-0">
-                  <Editor
-                    height="100%"
-                    language={getLanguageForMonaco(
-                      selectedLanguage
-                    )}
-                    value={code}
-                    onChange={
-                      handleEditorChange
                     }
-                    onMount={
-                      handleEditorDidMount
-                    }
-                    theme="vs-dark"
-                    options={{
-                      fontSize: 14,
-                      minimap: {
-                        enabled: false,
-                      },
-                      automaticLayout:
-                        true,
-                      readOnly:
-                        isBusy,
-                      cursorStyle:
-                        'line',
-                      mouseWheelZoom:
-                        true,
-                    }}
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="p-4 border-t border-base-300 flex justify-between">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() =>
-                        setActiveRightTab(
-                          'testcase'
-                        )
-                      }
-                    >
-                      Console
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className={`btn btn-outline btn-sm ${
-                        isRunning
-                          ? 'loading'
-                          : ''
-                      }`}
-                      onClick={
-                        handleRun
-                      }
-                      disabled={isBusy}
-                    >
-                      {isRunning
-                        ? 'Running'
-                        : 'Run'}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`btn btn-primary btn-sm ${
-                        isSubmitting
-                          ? 'loading'
-                          : ''
-                      }`}
-                      onClick={
-                        handleSubmitCode
-                      }
-                      disabled={isBusy}
-                    >
-                      {isSubmitting
-                        ? 'Submitting'
-                        : 'Submit'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TESTCASE */}
-            {activeRightTab ===
-              'testcase' && (
-              <div className="flex-1 p-4 overflow-y-auto">
-                <h3 className="font-semibold mb-4">
-                  Test Results
-                </h3>
-
-                {runResult ? (
-                  <div
-                    className={`alert ${
-                      runResult.success
-                        ? 'alert-success'
-                        : 'alert-error'
-                    } mb-4`}
+                    className="btn btn-ghost btn-xs"
+                    title="Decrease font size"
                   >
-                    <div className="w-full">
-                      {runResult.success ? (
-                        <div>
-                          <h4 className="font-bold">
-                            ✅ All test cases
-                            passed!
-                          </h4>
+                    A-
+                  </button>
 
-                          <p className="text-sm mt-2">
-                            Runtime:{' '}
-                            {
-                              runResult.runtime
-                            }{' '}
-                            sec
-                          </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditorFontSize(
+                        (size) =>
+                          Math.min(
+                            22,
+                            size + 1
+                          )
+                      )
+                    }
+                    className="btn btn-ghost btn-xs"
+                    title="Increase font size"
+                  >
+                    A+
+                  </button>
 
-                          <p className="text-sm">
-                            Memory:{' '}
-                            {
-                              runResult.memory
-                            }{' '}
-                            KB
-                          </p>
+                  <button
+                    type="button"
+                    onClick={
+                      handleResetCode
+                    }
+                    disabled={isBusy}
+                    className="btn btn-ghost btn-sm"
+                    title="Reset code"
+                  >
+                    <RotateCcw
+                      size={15}
+                    />
 
-                          <div className="mt-4 space-y-2">
-                            {Array.isArray(
-                              runResult.testCases
-                            ) &&
-                              runResult.testCases.map(
-                                (
-                                  testCase,
-                                  index
-                                ) => (
-                                  <div
-                                    key={
-                                      index
-                                    }
-                                    className="bg-base-100 p-3 rounded text-xs"
-                                  >
-                                    <div className="font-mono space-y-1">
-                                      <div>
-                                        <strong>
-                                          Input:
-                                        </strong>{' '}
-                                        <span className="whitespace-pre-wrap">
-                                          {
-                                            testCase.stdin
-                                          }
-                                        </span>
-                                      </div>
+                    <span className="hidden xl:inline">
+                      Reset
+                    </span>
+                  </button>
 
-                                      <div>
-                                        <strong>
-                                          Expected:
-                                        </strong>{' '}
-                                        <span className="whitespace-pre-wrap">
-                                          {
-                                            testCase.expected_output
-                                          }
-                                        </span>
-                                      </div>
+                  <button
+                    type="button"
+                    onClick={
+                      handleEditorFullscreen
+                    }
+                    className="btn btn-ghost btn-sm"
+                    title={
+                      editorFullscreen
+                        ? 'Exit fullscreen'
+                        : 'Fullscreen editor'
+                    }
+                  >
+                    {editorFullscreen ? (
+                      <Minimize2
+                        size={16}
+                      />
+                    ) : (
+                      <Expand
+                        size={16}
+                      />
+                    )}
+                  </button>
 
-                                      <div>
-                                        <strong>
-                                          Output:
-                                        </strong>{' '}
-                                        <span className="whitespace-pre-wrap">
-                                          {
-                                            testCase.stdout
-                                          }
-                                        </span>
-                                      </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    title="Editor settings"
+                  >
+                    <Settings2
+                      size={16}
+                    />
+                  </button>
 
-                                      <div className="text-success flex items-center gap-1">
-                                        <CheckCircle2 size={14} />
-                                        Passed
-                                      </div>
-                                    </div>
-                                  </div>
-                                )
-                              )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <h4 className="font-bold">
-                            ❌ Error
-                          </h4>
+                </div>
 
-                          <p className="mt-2">
-                            {runResult.error ||
-                              'One or more test cases failed.'}
-                          </p>
-
-                          {Array.isArray(
-                            runResult.testCases
-                          ) &&
-                            runResult.testCases
-                              .length >
-                              0 && (
-                              <div className="mt-4 space-y-2">
-                                {runResult.testCases.map(
-                                  (
-                                    testCase,
-                                    index
-                                  ) => (
-                                    <div
-                                      key={
-                                        index
-                                      }
-                                      className="bg-base-100 p-3 rounded text-xs"
-                                    >
-                                      <div className="font-mono space-y-1">
-                                        <div>
-                                          <strong>
-                                            Input:
-                                          </strong>{' '}
-                                          <span className="whitespace-pre-wrap">
-                                            {
-                                              testCase.stdin
-                                            }
-                                          </span>
-                                        </div>
-
-                                        <div>
-                                          <strong>
-                                            Expected:
-                                          </strong>{' '}
-                                          <span className="whitespace-pre-wrap">
-                                            {
-                                              testCase.expected_output
-                                            }
-                                          </span>
-                                        </div>
-
-                                        <div>
-                                          <strong>
-                                            Output:
-                                          </strong>{' '}
-                                          <span className="whitespace-pre-wrap">
-                                            {
-                                              testCase.stdout
-                                            }
-                                          </span>
-                                        </div>
-
-                                        <div
-                                          className={
-                                            testCase.status_id ===
-                                            3
-                                              ? 'text-success'
-                                              : 'text-error'
-                                          }
-                                        >
-                                          {testCase.status_id ===
-                                          3
-                                            ? '✓ Passed'
-                                            : '✗ Failed'}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-base-content/60">
-                    Click "Run" to test your
-                    code with the example test
-                    cases.
-                  </div>
-                )}
               </div>
-            )}
 
-            {/* SUBMISSION RESULT */}
-            {activeRightTab ===
-              'result' && (
-              <div className="flex-1 p-4 overflow-y-auto">
-                <h3 className="font-semibold mb-4">
+              {/* Monaco */}
+              <div className="flex-1 min-h-0">
+
+                <Editor
+                  height="100%"
+                  language={getLanguageForMonaco(
+                    selectedLanguage
+                  )}
+                  value={code}
+                  onChange={
+                    handleEditorChange
+                  }
+                  onMount={
+                    handleEditorDidMount
+                  }
+                  theme="vs-dark"
+                  options={{
+                    fontSize:
+                      editorFontSize,
+                    minimap: {
+                      enabled: false,
+                    },
+                    automaticLayout:
+                      true,
+                    readOnly:
+                      isBusy,
+                    cursorStyle:
+                      'line',
+                    mouseWheelZoom:
+                      true,
+                    padding: {
+                      top: 12,
+                      bottom: 12,
+                    },
+                    scrollBeyondLastLine:
+                      false,
+                    smoothScrolling: true,
+                    tabSize: 2,
+                    wordWrap: 'on',
+                  }}
+                />
+
+              </div>
+
+              {/* Editor Footer */}
+              <div className="shrink-0 min-h-16 border-t border-base-300 bg-base-100 flex items-center justify-between gap-3 px-4 py-3">
+
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() =>
+                    setActiveRightTab(
+                      'testcase'
+                    )
+                  }
+                >
+                  Testcase
+                </button>
+
+                <div className="flex items-center gap-2">
+
+                  <button
+                    type="button"
+                    className={`btn btn-outline btn-sm ${
+                      isRunning
+                        ? 'loading'
+                        : ''
+                    }`}
+                    onClick={handleRun}
+                    disabled={isBusy}
+                  >
+                    {!isRunning && (
+                      <Play size={15} />
+                    )}
+
+                    {isRunning
+                      ? 'Running'
+                      : 'Run'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`btn btn-primary btn-sm ${
+                      isSubmitting
+                        ? 'loading'
+                        : ''
+                    }`}
+                    onClick={
+                      handleSubmitCode
+                    }
+                    disabled={isBusy}
+                  >
+                    {!isSubmitting && (
+                      <Send size={15} />
+                    )}
+
+                    {isSubmitting
+                      ? 'Submitting'
+                      : 'Submit'}
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* Testcase */}
+          {activeRightTab ===
+            'testcase' && (
+            <div className="flex-1 min-h-0 overflow-y-auto p-5">
+
+              <div className="flex items-center justify-between mb-5">
+
+                <div>
+
+                  <h3 className="text-lg font-bold">
+                    Test Results
+                  </h3>
+
+                  <p className="text-sm text-base-content/50">
+                    Run your code against
+                    the visible test cases.
+                  </p>
+
+                </div>
+
+              </div>
+
+              {!runResult ? (
+
+                <div className="border border-dashed border-base-300 rounded-2xl p-8 text-center">
+
+                  <Play
+                    size={28}
+                    className="mx-auto text-base-content/30"
+                  />
+
+                  <p className="mt-3 text-sm text-base-content/50">
+                    Click Run to test
+                    your solution.
+                  </p>
+
+                </div>
+
+              ) : (
+
+                <div
+                  className={`rounded-2xl border p-5 ${
+                    runResult.success
+                      ? 'border-success/30 bg-success/5'
+                      : 'border-error/30 bg-error/5'
+                  }`}
+                >
+
+                  <div className="flex items-center gap-3">
+
+                    {runResult.success ? (
+                      <CheckCircle2
+                        className="text-success"
+                        size={24}
+                      />
+                    ) : (
+                      <AlertCircle
+                        className="text-error"
+                        size={24}
+                      />
+                    )}
+
+                    <div>
+
+                      <h4 className="font-bold">
+                        {runResult.success
+                          ? 'All test cases passed'
+                          : 'Some test cases failed'}
+                      </h4>
+
+                      <p className="text-sm text-base-content/60">
+                        {runResult.success
+                          ? 'Your code produced the expected output.'
+                          : runResult.error ||
+                            'One or more test cases did not pass.'}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-5">
+
+                    <div className="rounded-xl bg-base-100 border border-base-300 p-3">
+
+                      <p className="text-xs text-base-content/50">
+                        Runtime
+                      </p>
+
+                      <p className="font-semibold mt-1">
+                        {runResult.runtime}{' '}
+                        sec
+                      </p>
+
+                    </div>
+
+                    <div className="rounded-xl bg-base-100 border border-base-300 p-3">
+
+                      <p className="text-xs text-base-content/50">
+                        Memory
+                      </p>
+
+                      <p className="font-semibold mt-1">
+                        {runResult.memory}{' '}
+                        KB
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {runResult.testCases
+                    ?.length > 0 && (
+                    <div className="mt-5 space-y-3">
+
+                      {runResult.testCases.map(
+                        (
+                          testCase,
+                          index
+                        ) => (
+
+                          <div
+                            key={index}
+                            className="bg-base-100 border border-base-300 rounded-xl p-4"
+                          >
+
+                            <div className="flex items-center justify-between mb-3">
+
+                              <span className="font-semibold text-sm">
+                                Test Case{' '}
+                                {index + 1}
+                              </span>
+
+                              <span
+                                className={
+                                  testCase.status_id ===
+                                  3
+                                    ? 'text-success text-xs font-medium'
+                                    : 'text-error text-xs font-medium'
+                                }
+                              >
+                                {testCase.status_id ===
+                                3
+                                  ? 'Passed'
+                                  : 'Failed'}
+                              </span>
+
+                            </div>
+
+                            <div className="space-y-3 font-mono text-xs">
+
+                              <div>
+
+                                <p className="text-base-content/50 mb-1">
+                                  Input
+                                </p>
+
+                                <pre className="bg-base-200 rounded-lg p-3 overflow-x-auto">
+                                  {
+                                    testCase.stdin
+                                  }
+                                </pre>
+
+                              </div>
+
+                              <div>
+
+                                <p className="text-base-content/50 mb-1">
+                                  Expected
+                                </p>
+
+                                <pre className="bg-base-200 rounded-lg p-3 overflow-x-auto">
+                                  {
+                                    testCase.expected_output
+                                  }
+                                </pre>
+
+                              </div>
+
+                              <div>
+
+                                <p className="text-base-content/50 mb-1">
+                                  Output
+                                </p>
+
+                                <pre className="bg-base-200 rounded-lg p-3 overflow-x-auto">
+                                  {
+                                    testCase.stdout ||
+                                    'No output'
+                                  }
+                                </pre>
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+                  )}
+
+                </div>
+
+              )}
+
+            </div>
+          )}
+
+          {/* Result */}
+          {activeRightTab ===
+            'result' && (
+            <div className="flex-1 min-h-0 overflow-y-auto p-5">
+
+              <div className="mb-5">
+
+                <h3 className="text-lg font-bold">
                   Submission Result
                 </h3>
 
-                {submitResult ? (
-                  <div
-                    className={`alert ${
-                      submitResult.accepted
-                        ? 'alert-success'
-                        : 'alert-error'
-                    }`}
-                  >
-                    <div className="w-full">
-                      {submitResult.accepted ? (
-                        <div>
-                          <h4 className="font-bold text-lg">
-                            🎉 Accepted
-                          </h4>
+                <p className="text-sm text-base-content/50">
+                  Final evaluation from the
+                  hidden test cases.
+                </p>
 
-                          <div className="mt-4 space-y-2">
-                            <p>
-                              Test Cases
-                              Passed:{' '}
-                              {
-                                submitResult.passedTestCases
-                              }
-                              /
-                              {
-                                submitResult.totalTestCases
-                              }
-                            </p>
-
-                            <p>
-                              Runtime:{' '}
-                              {
-                                submitResult.runtime
-                              }{' '}
-                              sec
-                            </p>
-
-                            <p>
-                              Memory:{' '}
-                              {
-                                submitResult.memory
-                              }{' '}
-                              KB
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <h4 className="font-bold text-lg">
-                            ❌{' '}
-                            {submitResult.error ||
-                              'Submission failed.'}
-                          </h4>
-
-                          <div className="mt-4 space-y-2">
-                            <p>
-                              Test Cases
-                              Passed:{' '}
-                              {
-                                submitResult.passedTestCases
-                              }
-                              /
-                              {
-                                submitResult.totalTestCases
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-base-content/60">
-                    Click "Submit" to submit your
-                    solution for evaluation.
-                  </div>
-                )}
               </div>
-            )}
-          </div>
+
+              {!submitResult ? (
+
+                <div className="border border-dashed border-base-300 rounded-2xl p-8 text-center">
+
+                  <Send
+                    size={28}
+                    className="mx-auto text-base-content/30"
+                  />
+
+                  <p className="mt-3 text-sm text-base-content/50">
+                    Submit your solution to
+                    see the result.
+                  </p>
+
+                </div>
+
+              ) : (
+
+                <div
+                  className={`rounded-2xl border p-6 ${
+                    submitResult.accepted
+                      ? 'border-success/30 bg-success/5'
+                      : 'border-error/30 bg-error/5'
+                  }`}
+                >
+
+                  <div className="flex items-start gap-4">
+
+                    {submitResult.accepted ? (
+                      <div className="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center">
+                        <CheckCircle2
+                          className="text-success"
+                          size={24}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-11 h-11 rounded-xl bg-error/10 flex items-center justify-center">
+                        <AlertCircle
+                          className="text-error"
+                          size={24}
+                        />
+                      </div>
+                    )}
+
+                    <div>
+
+                      <h4 className="text-xl font-bold">
+                        {submitResult.accepted
+                          ? 'Accepted'
+                          : 'Submission Failed'}
+                      </h4>
+
+                      <p className="text-sm text-base-content/60 mt-1">
+                        {submitResult.accepted
+                          ? 'Great work! Your solution passed all hidden test cases.'
+                          : submitResult.error ||
+                            'Your solution did not pass all test cases.'}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
+
+                    <div className="bg-base-100 border border-base-300 rounded-xl p-4">
+
+                      <p className="text-xs text-base-content/50">
+                        Test Cases
+                      </p>
+
+                      <p className="font-bold text-lg mt-1">
+                        {
+                          submitResult.passedTestCases
+                        }
+                        /
+                        {
+                          submitResult.totalTestCases
+                        }
+                      </p>
+
+                    </div>
+
+                    <div className="bg-base-100 border border-base-300 rounded-xl p-4">
+
+                      <p className="text-xs text-base-content/50">
+                        Runtime
+                      </p>
+
+                      <p className="font-bold text-lg mt-1">
+                        {
+                          submitResult.runtime
+                        }{' '}
+                        sec
+                      </p>
+
+                    </div>
+
+                    <div className="bg-base-100 border border-base-300 rounded-xl p-4">
+
+                      <p className="text-xs text-base-content/50">
+                        Memory
+                      </p>
+
+                      <p className="font-bold text-lg mt-1">
+                        {
+                          submitResult.memory
+                        }{' '}
+                        KB
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {submitResult.accepted && (
+                    <div className="mt-6 flex items-center gap-2 text-success text-sm font-medium">
+
+                      <CheckCircle2
+                        size={17}
+                      />
+
+                      Problem marked as
+                      solved.
+
+                    </div>
+                  )}
+
+                </div>
+
+              )}
+
+            </div>
+          )}
+
         </div>
+
       </div>
+    </div>
+  );
+};
+
+const BotIcon = () => {
+  return (
+    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+      <Sparkles size={19} />
     </div>
   );
 };
