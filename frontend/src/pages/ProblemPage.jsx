@@ -1,6 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import Editor from '@monaco-editor/react';
-import { NavLink, useParams } from 'react-router';
+import {
+  NavLink,
+  useParams,
+} from 'react-router';
 import { useSelector } from 'react-redux';
 import {
   AlertCircle,
@@ -11,6 +19,7 @@ import {
   Expand,
   Minimize2,
   Play,
+  RefreshCw,
   RotateCcw,
   Send,
   Settings2,
@@ -34,11 +43,17 @@ const normalizeLanguage = (language) => {
 
   const value = language.trim().toLowerCase();
 
-  if (value === 'cpp' || value === 'c++') {
+  if (
+    value === 'cpp' ||
+    value === 'c++'
+  ) {
     return 'cpp';
   }
 
-  if (value === 'javascript' || value === 'js') {
+  if (
+    value === 'javascript' ||
+    value === 'js'
+  ) {
     return 'javascript';
   }
 
@@ -58,30 +73,71 @@ const getInitialCode = (
   }
 
   const normalizedSelectedLanguage =
-    normalizeLanguage(selectedLanguage);
+    normalizeLanguage(
+      selectedLanguage
+    );
 
   const matchingCode =
     problemData.startCode.find(
       (item) =>
-        normalizeLanguage(item.language) ===
+        normalizeLanguage(
+          item.language
+        ) ===
         normalizedSelectedLanguage
     );
 
-  return matchingCode?.initialCode || '';
+  return (
+    matchingCode?.initialCode ||
+    ''
+  );
 };
 
-const getErrorMessage = (error, fallback) => {
+const getErrorMessage = (
+  error,
+  fallback
+) => {
+  const status =
+    error?.response?.status;
+
+  if (status === 401) {
+    return 'Your session has expired. Please log in again.';
+  }
+
+  if (status === 403) {
+    return 'You are not allowed to perform this action.';
+  }
+
+  if (status === 404) {
+    return 'The requested problem or resource was not found.';
+  }
+
+  if (status === 429) {
+    return 'Too many requests. Please wait a moment and try again.';
+  }
+
+  if (status >= 500) {
+    return 'The server encountered an error. Please try again.';
+  }
+
+  if (!error?.response) {
+    return 'Unable to connect to the CodeNova server. Please check your connection.';
+  }
+
   return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error?.message ||
-    error?.response?.data?.error ||
+    error.response?.data?.message ||
+    error.response?.data?.error?.message ||
+    error.response?.data?.error ||
     error?.message ||
     fallback
   );
 };
 
-const getDifficultyColor = (difficulty) => {
-  switch (difficulty?.toLowerCase()) {
+const getDifficultyColor = (
+  difficulty
+) => {
+  switch (
+    difficulty?.toLowerCase()
+  ) {
     case 'easy':
       return 'text-success';
 
@@ -96,8 +152,12 @@ const getDifficultyColor = (difficulty) => {
   }
 };
 
-const getDifficultyBadge = (difficulty) => {
-  switch (difficulty?.toLowerCase()) {
+const getDifficultyBadge = (
+  difficulty
+) => {
+  switch (
+    difficulty?.toLowerCase()
+  ) {
     case 'easy':
       return 'badge-success';
 
@@ -112,67 +172,128 @@ const getDifficultyBadge = (difficulty) => {
   }
 };
 
+const getRunTestCaseStatus = (
+  testCase
+) => {
+  return testCase?.status_id === 3
+    ? 'Passed'
+    : 'Failed';
+};
+
 const ProblemPage = () => {
-  const { problemId } = useParams();
+  const { problemId } =
+    useParams();
 
   const { user } = useSelector(
     (state) => state.auth
   );
 
-  const editorRef = useRef(null);
+  const editorRef =
+    useRef(null);
 
-  const [problem, setProblem] = useState(null);
-  const [isSolved, setIsSolved] = useState(false);
+  const mountedRef =
+    useRef(true);
 
-  const [selectedLanguage, setSelectedLanguage] =
-    useState('javascript');
+  const [problem, setProblem] =
+    useState(null);
 
-  const [code, setCode] = useState('');
+  const [isSolved, setIsSolved] =
+    useState(false);
+
+  const [
+    selectedLanguage,
+    setSelectedLanguage,
+  ] = useState('javascript');
+
+  const [code, setCode] =
+    useState('');
 
   const [pageLoading, setPageLoading] =
     useState(true);
 
+  const [
+    problemRetrying,
+    setProblemRetrying,
+  ] = useState(false);
+
   const [isRunning, setIsRunning] =
     useState(false);
 
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false);
 
   const [runResult, setRunResult] =
     useState(null);
 
-  const [submitResult, setSubmitResult] =
-    useState(null);
+  const [
+    submitResult,
+    setSubmitResult,
+  ] = useState(null);
 
-  const [activeLeftTab, setActiveLeftTab] =
-    useState('description');
+  const [
+    activeLeftTab,
+    setActiveLeftTab,
+  ] = useState('description');
 
-  const [activeRightTab, setActiveRightTab] =
-    useState('code');
+  const [
+    activeRightTab,
+    setActiveRightTab,
+  ] = useState('code');
 
   const [pageError, setPageError] =
     useState('');
 
-  const [editorFullscreen, setEditorFullscreen] =
-    useState(false);
+  const [
+    solvedStatusError,
+    setSolvedStatusError,
+  ] = useState('');
 
-  const [editorFontSize, setEditorFontSize] =
-    useState(14);
+  const [
+    editorFullscreen,
+    setEditorFullscreen,
+  ] = useState(false);
+
+  const [
+    editorFontSize,
+    setEditorFontSize,
+  ] = useState(14);
 
   const isBusy =
-    isRunning || isSubmitting;
+    isRunning ||
+    isSubmitting;
 
   useEffect(() => {
-    const fetchProblem = async () => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadProblem =
+    useCallback(async () => {
+      if (!problemId) {
+        setPageLoading(false);
+        setPageError(
+          'Missing problem ID.'
+        );
+        return;
+      }
+
       setPageLoading(true);
       setPageError('');
+      setSolvedStatusError('');
 
       try {
-        const response = await axiosClient.get(
-          `/problem/problemById/${problemId}`
-        );
+        const problemResponse =
+          await axiosClient.get(
+            `/problem/problemById/${problemId}`
+          );
 
-        const problemData = response.data;
+        const problemData =
+          problemResponse.data;
 
         if (!problemData) {
           throw new Error(
@@ -180,28 +301,15 @@ const ProblemPage = () => {
           );
         }
 
-        setProblem(problemData);
+        if (
+          !mountedRef.current
+        ) {
+          return;
+        }
 
-        const solvedResponse =
-          await axiosClient.get(
-            '/problem/problemSolvedByUser'
-          );
-
-        const solvedProblems =
-          Array.isArray(
-            solvedResponse.data
-          )
-            ? solvedResponse.data
-            : [];
-
-        const alreadySolved =
-          solvedProblems.some(
-            (solvedProblem) =>
-              solvedProblem._id ===
-              problemData._id
-          );
-
-        setIsSolved(alreadySolved);
+        setProblem(
+          problemData
+        );
 
         setSelectedLanguage(
           'javascript'
@@ -219,16 +327,76 @@ const ProblemPage = () => {
         setActiveLeftTab(
           'description'
         );
-        setActiveRightTab('code');
+        setActiveRightTab(
+          'code'
+        );
+
+        try {
+          const solvedResponse =
+            await axiosClient.get(
+              '/problem/problemSolvedByUser'
+            );
+
+          if (
+            !mountedRef.current
+          ) {
+            return;
+          }
+
+          const solvedProblems =
+            Array.isArray(
+              solvedResponse.data
+            )
+              ? solvedResponse.data
+              : [];
+
+          const alreadySolved =
+            solvedProblems.some(
+              (solvedProblem) =>
+                solvedProblem._id ===
+                problemData._id
+            );
+
+          setIsSolved(
+            alreadySolved
+          );
+        } catch (error) {
+          if (
+            !mountedRef.current
+          ) {
+            return;
+          }
+
+          console.error(
+            'Error fetching solved status:',
+            error.response?.data ||
+              error
+          );
+
+          setIsSolved(false);
+
+          setSolvedStatusError(
+            getErrorMessage(
+              error,
+              'Unable to load your solved status.'
+            )
+          );
+        }
       } catch (error) {
+        if (
+          !mountedRef.current
+        ) {
+          return;
+        }
+
         console.error(
           'Error fetching problem:',
-          error.response?.data || error
+          error.response?.data ||
+            error
         );
 
         setProblem(null);
         setCode('');
-
         setPageError(
           getErrorMessage(
             error,
@@ -236,14 +404,17 @@ const ProblemPage = () => {
           )
         );
       } finally {
-        setPageLoading(false);
+        if (
+          mountedRef.current
+        ) {
+          setPageLoading(false);
+        }
       }
-    };
+    }, [problemId]);
 
-    if (problemId) {
-      fetchProblem();
-    }
-  }, [problemId]);
+  useEffect(() => {
+    loadProblem();
+  }, [loadProblem]);
 
   useEffect(() => {
     if (!problem) {
@@ -260,28 +431,35 @@ const ProblemPage = () => {
 
     setRunResult(null);
     setSubmitResult(null);
-    setActiveRightTab('code');
-  }, [selectedLanguage, problem]);
+    setActiveRightTab(
+      'code'
+    );
+  }, [
+    selectedLanguage,
+    problem,
+  ]);
 
-  const handleEditorChange = (value) => {
-    setCode(value || '');
-  };
+  const handleEditorChange =
+    (value) => {
+      setCode(value || '');
+    };
 
-  const handleEditorDidMount = (
-    editor
-  ) => {
-    editorRef.current = editor;
-  };
+  const handleEditorDidMount =
+    (editor) => {
+      editorRef.current =
+        editor;
+    };
 
-  const handleLanguageChange = (
-    language
-  ) => {
-    if (isBusy) {
-      return;
-    }
+  const handleLanguageChange =
+    (language) => {
+      if (isBusy) {
+        return;
+      }
 
-    setSelectedLanguage(language);
-  };
+      setSelectedLanguage(
+        language
+      );
+    };
 
   const handleResetCode = () => {
     if (!problem || isBusy) {
@@ -295,20 +473,23 @@ const ProblemPage = () => {
       );
 
     setCode(initialCode);
-
     setRunResult(null);
     setSubmitResult(null);
-    setActiveRightTab('code');
-  };
-
-  const handleEditorFullscreen = () => {
-    setEditorFullscreen(
-      (previous) => !previous
+    setActiveRightTab(
+      'code'
     );
   };
 
+  const handleEditorFullscreen =
+    () => {
+      setEditorFullscreen(
+        (previous) =>
+          !previous
+      );
+    };
+
   const handleRun = async () => {
-    if (!problem) {
+    if (!problem || isBusy) {
       return;
     }
 
@@ -321,13 +502,16 @@ const ProblemPage = () => {
       });
 
       setSubmitResult(null);
-      setActiveRightTab('testcase');
+      setActiveRightTab(
+        'testcase'
+      );
 
       return;
     }
 
     setIsRunning(true);
     setRunResult(null);
+    setSubmitResult(null);
 
     try {
       const response =
@@ -340,22 +524,31 @@ const ProblemPage = () => {
           }
         );
 
-      const result = response.data;
+      if (!mountedRef.current) {
+        return;
+      }
+
+      const result =
+        response.data;
 
       setRunResult({
         success: Boolean(
           result?.success
         ),
+
         testCases:
           Array.isArray(
             result?.testCases
           )
             ? result.testCases
             : [],
+
         runtime:
           result?.runtime ?? 0,
+
         memory:
           result?.memory ?? 0,
+
         error:
           result?.error || null,
       });
@@ -364,9 +557,16 @@ const ProblemPage = () => {
         'testcase'
       );
     } catch (error) {
+      if (
+        !mountedRef.current
+      ) {
+        return;
+      }
+
       console.error(
         'Error running code:',
-        error.response?.data || error
+        error.response?.data ||
+          error
       );
 
       setRunResult({
@@ -376,19 +576,25 @@ const ProblemPage = () => {
           'Unable to run code.'
         ),
         testCases: [],
+        runtime: 0,
+        memory: 0,
       });
 
       setActiveRightTab(
         'testcase'
       );
     } finally {
-      setIsRunning(false);
+      if (
+        mountedRef.current
+      ) {
+        setIsRunning(false);
+      }
     }
   };
 
   const handleSubmitCode =
     async () => {
-      if (!problem) {
+      if (!problem || isBusy) {
         return;
       }
 
@@ -404,13 +610,16 @@ const ProblemPage = () => {
         });
 
         setRunResult(null);
-        setActiveRightTab('result');
+        setActiveRightTab(
+          'result'
+        );
 
         return;
       }
 
       setIsSubmitting(true);
       setSubmitResult(null);
+      setRunResult(null);
 
       try {
         const response =
@@ -423,7 +632,12 @@ const ProblemPage = () => {
             }
           );
 
-        const result = response.data;
+        if (!mountedRef.current) {
+          return;
+        }
+
+        const result =
+          response.data;
 
         const accepted = Boolean(
           result?.accepted
@@ -431,46 +645,72 @@ const ProblemPage = () => {
 
         setSubmitResult({
           accepted,
+
           error:
             result?.error || null,
+
           passedTestCases:
             result?.passedTestCases ??
             0,
+
           totalTestCases:
             result?.totalTestCases ??
             0,
+
           runtime:
             result?.runtime ?? 0,
+
           memory:
             result?.memory ?? 0,
         });
 
         if (accepted) {
           setIsSolved(true);
+          setSolvedStatusError('');
         }
 
-        setActiveRightTab('result');
+        setActiveRightTab(
+          'result'
+        );
       } catch (error) {
+        if (
+          !mountedRef.current
+        ) {
+          return;
+        }
+
         console.error(
           'Error submitting code:',
-          error.response?.data || error
+          error.response?.data ||
+            error
         );
 
         setSubmitResult({
           accepted: false,
+
           error: getErrorMessage(
             error,
             'Unable to submit code.'
           ),
+
           passedTestCases: 0,
+
           totalTestCases: 0,
+
           runtime: 0,
+
           memory: 0,
         });
 
-        setActiveRightTab('result');
+        setActiveRightTab(
+          'result'
+        );
       } finally {
-        setIsSubmitting(false);
+        if (
+          mountedRef.current
+        ) {
+          setIsSubmitting(false);
+        }
       }
     };
 
@@ -496,7 +736,13 @@ const ProblemPage = () => {
   if (pageLoading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg" />
+        <div className="flex flex-col items-center gap-3">
+          <span className="loading loading-spinner loading-lg" />
+
+          <p className="text-base-content/60">
+            Loading problem...
+          </p>
+        </div>
       </div>
     );
   }
@@ -504,11 +750,8 @@ const ProblemPage = () => {
   if (pageError || !problem) {
     return (
       <div className="min-h-screen bg-base-200">
-
         <header className="navbar bg-base-100 border-b border-base-300 px-4 shadow-sm">
-
           <div className="flex-1">
-
             <NavLink
               to="/"
               className="flex items-center gap-2 font-bold text-xl"
@@ -517,71 +760,75 @@ const ProblemPage = () => {
                 size={22}
                 className="text-primary"
               />
-
               CodeNova
             </NavLink>
-
           </div>
 
           <div className="flex-none text-sm">
             {user?.firstName}
           </div>
-
         </header>
 
         <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
-
           <div className="card bg-base-100 shadow-xl max-w-xl w-full">
-
             <div className="card-body">
-
               <div className="flex items-center gap-3">
-
                 <AlertCircle className="text-error" />
 
                 <h2 className="card-title text-error">
                   Unable to load problem
                 </h2>
-
               </div>
 
-              <p className="text-base-content/70">
+              <p className="text-base-content/70 mt-2">
                 {pageError ||
                   'Problem not found.'}
               </p>
 
-              <div className="card-actions justify-end mt-4">
+              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    loadProblem()
+                  }
+                  className="btn btn-primary"
+                  disabled={
+                    problemRetrying
+                  }
+                >
+                  <RefreshCw
+                    size={16}
+                    className={
+                      problemRetrying
+                        ? 'animate-spin'
+                        : ''
+                    }
+                  />
+
+                  Try Again
+                </button>
 
                 <NavLink
                   to="/"
-                  className="btn btn-primary"
+                  className="btn btn-ghost"
                 >
                   <ChevronLeft
                     size={18}
                   />
                   Back to Problems
                 </NavLink>
-
               </div>
-
             </div>
-
           </div>
-
         </main>
-
       </div>
     );
   }
 
   return (
     <div className="h-screen flex flex-col bg-base-100 overflow-hidden">
-
-      {/* Header */}
       <header className="h-14 shrink-0 bg-base-100 border-b border-base-300 flex items-center justify-between px-4">
-
         <div className="flex items-center gap-4">
-
           <NavLink
             to="/"
             className="flex items-center gap-2 font-bold text-lg hover:text-primary transition-colors"
@@ -603,42 +850,41 @@ const ProblemPage = () => {
             <ArrowLeft size={16} />
             Problems
           </NavLink>
-
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              loadProblem()
+            }
+            disabled={isBusy}
+            className="btn btn-ghost btn-circle btn-sm"
+            title="Refresh problem"
+          >
+            <RefreshCw size={16} />
+          </button>
 
           <div className="hidden sm:flex items-center gap-2 text-sm text-base-content/60">
-
             <span>
               {user?.firstName}
             </span>
-
           </div>
 
           <div className="avatar placeholder">
-
             <div className="bg-primary text-primary-content rounded-full w-8">
-
               <span className="font-semibold">
                 {user?.firstName
                   ?.charAt(0)
                   ?.toUpperCase() ||
                   'U'}
               </span>
-
             </div>
-
           </div>
-
         </div>
-
       </header>
 
-      {/* Workspace */}
       <div className="flex-1 min-h-0 flex">
-
-        {/* LEFT PANEL */}
         <div
           className={
             editorFullscreen
@@ -646,16 +892,10 @@ const ProblemPage = () => {
               : 'w-1/2 flex flex-col border-r border-base-300'
           }
         >
-
-          {/* Problem Header */}
           <div className="shrink-0 p-5 border-b border-base-300 bg-base-100">
-
             <div className="flex items-start justify-between gap-4">
-
               <div>
-
                 <div className="flex items-center gap-3 flex-wrap">
-
                   <h1 className="text-xl font-bold">
                     {problem.title}
                   </h1>
@@ -668,11 +908,9 @@ const ProblemPage = () => {
                       Solved
                     </span>
                   )}
-
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
-
                   <span
                     className={`badge badge-sm ${getDifficultyBadge(
                       problem.difficulty
@@ -701,18 +939,35 @@ const ProblemPage = () => {
                         </span>
                       )
                     )}
-
                 </div>
 
+                {solvedStatusError && (
+                  <div className="mt-3 text-xs text-warning flex items-center gap-2">
+                    <AlertCircle
+                      size={14}
+                    />
+
+                    <span>
+                      Your solved status
+                      could not be loaded.
+                    </span>
+
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() =>
+                        loadProblem()
+                      }
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
               </div>
-
             </div>
-
           </div>
 
-          {/* Left Tabs */}
           <div className="tabs tabs-bordered bg-base-100 px-4 shrink-0 overflow-x-auto">
-
             <button
               type="button"
               className={`tab whitespace-nowrap ${
@@ -797,32 +1052,26 @@ const ProblemPage = () => {
             >
               AI Chat
             </button>
-
           </div>
 
-          {/* Left Content */}
           <div className="flex-1 overflow-y-auto p-6">
-
             {activeLeftTab ===
               'description' && (
               <div>
-
                 <div className="prose max-w-none">
-
                   <div className="whitespace-pre-wrap text-sm leading-7 text-base-content/85">
-                    {problem.description}
+                    {
+                      problem.description
+                    }
                   </div>
-
                 </div>
 
                 <div className="mt-8">
-
                   <h3 className="text-lg font-semibold mb-4">
                     Examples
                   </h3>
 
                   <div className="space-y-4">
-
                     {Array.isArray(
                       problem.visibleTestCases
                     ) &&
@@ -835,16 +1084,13 @@ const ProblemPage = () => {
                             key={index}
                             className="border border-base-300 rounded-xl overflow-hidden"
                           >
-
                             <div className="px-4 py-3 bg-base-200 border-b border-base-300 font-semibold text-sm">
                               Example{' '}
                               {index + 1}
                             </div>
 
                             <div className="p-4 space-y-4 text-sm">
-
                               <div>
-
                                 <div className="text-xs uppercase tracking-wide text-base-content/50 mb-1">
                                   Input
                                 </div>
@@ -856,11 +1102,9 @@ const ProblemPage = () => {
                                     }
                                   </code>
                                 </pre>
-
                               </div>
 
                               <div>
-
                                 <div className="text-xs uppercase tracking-wide text-base-content/50 mb-1">
                                   Output
                                 </div>
@@ -872,12 +1116,10 @@ const ProblemPage = () => {
                                     }
                                   </code>
                                 </pre>
-
                               </div>
 
                               {example.explanation && (
                                 <div>
-
                                   <div className="text-xs uppercase tracking-wide text-base-content/50 mb-1">
                                     Explanation
                                   </div>
@@ -887,43 +1129,38 @@ const ProblemPage = () => {
                                       example.explanation
                                     }
                                   </p>
-
                                 </div>
                               )}
-
                             </div>
-
                           </div>
                         )
                       )}
 
-                    {!problem.visibleTestCases
+                    {!problem
+                      .visibleTestCases
                       ?.length && (
                       <div className="text-sm text-base-content/50">
                         No visible examples
                         available.
                       </div>
                     )}
-
                   </div>
-
                 </div>
-
               </div>
             )}
 
             {activeLeftTab ===
               'editorial' && (
               <div>
-
                 <h2 className="text-xl font-bold mb-4">
                   Editorial
                 </h2>
 
                 <div className="rounded-xl border border-base-300 bg-base-100 p-5">
-
                   <div className="flex items-center gap-2 text-primary mb-3">
-                    <Sparkles size={17} />
+                    <Sparkles
+                      size={17}
+                    />
 
                     <span className="font-semibold">
                       Coming soon
@@ -936,28 +1173,24 @@ const ProblemPage = () => {
                     this problem will be
                     available here.
                   </p>
-
                 </div>
-
               </div>
             )}
 
             {activeLeftTab ===
               'solutions' && (
               <div>
-
                 <h2 className="text-xl font-bold mb-4">
                   Solutions
                 </h2>
 
                 <div className="space-y-6">
-
                   {Array.isArray(
                     problem.referenceSolution
                   ) &&
-                  problem.referenceSolution
+                  problem
+                    .referenceSolution
                     .length > 0 ? (
-
                     problem.referenceSolution.map(
                       (
                         solution,
@@ -967,23 +1200,18 @@ const ProblemPage = () => {
                           key={`${solution.language}-${index}`}
                           className="border border-base-300 rounded-xl overflow-hidden"
                         >
-
                           <div className="bg-base-200 px-4 py-3 border-b border-base-300">
-
                             <h3 className="font-semibold text-sm">
-                              {
-                                LANGUAGE_LABELS[
-                                  normalizeLanguage(
-                                    solution.language
-                                  )
-                                ] ||
+                              {LANGUAGE_LABELS[
+                                normalizeLanguage(
+                                  solution.language
+                                )
+                              ] ||
                                 solution.language}
                             </h3>
-
                           </div>
 
                           <div className="p-4">
-
                             <pre className="bg-base-300 rounded-lg p-4 text-sm overflow-x-auto">
                               <code>
                                 {
@@ -991,67 +1219,53 @@ const ProblemPage = () => {
                                 }
                               </code>
                             </pre>
-
                           </div>
-
                         </div>
                       )
                     )
-
                   ) : (
-
                     <div className="text-sm text-base-content/50">
                       Solutions will be
                       available after you
                       solve the problem.
                     </div>
-
                   )}
-
                 </div>
-
               </div>
             )}
 
             {activeLeftTab ===
               'submissions' && (
               <div>
-
                 <h2 className="text-xl font-bold mb-4">
                   My Submissions
                 </h2>
 
                 <SubmissionHistory
-                  problemId={problemId}
+                  problemId={
+                    problemId
+                  }
                 />
-
               </div>
             )}
 
             {activeLeftTab ===
               'chatAI' && (
               <div>
-
                 <div className="flex items-center gap-2 mb-4">
-
                   <BotIcon />
 
                   <h2 className="text-xl font-bold">
                     AI Coding Assistant
                   </h2>
-
                 </div>
 
                 <ChatAi />
-
               </div>
             )}
-
           </div>
-
         </div>
 
-        {/* RIGHT PANEL */}
         <div
           className={
             editorFullscreen
@@ -1059,10 +1273,7 @@ const ProblemPage = () => {
               : 'w-1/2 flex flex-col'
           }
         >
-
-          {/* Right Tabs */}
           <div className="tabs tabs-bordered bg-base-200 px-4 shrink-0">
-
             <button
               type="button"
               className={`tab ${
@@ -1072,7 +1283,9 @@ const ProblemPage = () => {
                   : ''
               }`}
               onClick={() =>
-                setActiveRightTab('code')
+                setActiveRightTab(
+                  'code'
+                )
               }
             >
               Code
@@ -1111,19 +1324,13 @@ const ProblemPage = () => {
             >
               Result
             </button>
-
           </div>
 
-          {/* Code */}
           {activeRightTab ===
             'code' && (
             <div className="flex-1 min-h-0 flex flex-col">
-
-              {/* Editor Toolbar */}
               <div className="h-12 shrink-0 border-b border-base-300 bg-base-100 flex items-center justify-between px-3">
-
                 <div className="flex items-center gap-1">
-
                   {[
                     'javascript',
                     'java',
@@ -1154,11 +1361,9 @@ const ProblemPage = () => {
                       </button>
                     )
                   )}
-
                 </div>
 
                 <div className="flex items-center gap-1">
-
                   <button
                     type="button"
                     onClick={() =>
@@ -1171,6 +1376,9 @@ const ProblemPage = () => {
                       )
                     }
                     className="btn btn-ghost btn-xs"
+                    disabled={
+                      isBusy
+                    }
                     title="Decrease font size"
                   >
                     A-
@@ -1188,6 +1396,9 @@ const ProblemPage = () => {
                       )
                     }
                     className="btn btn-ghost btn-xs"
+                    disabled={
+                      isBusy
+                    }
                     title="Increase font size"
                   >
                     A+
@@ -1243,14 +1454,10 @@ const ProblemPage = () => {
                       size={16}
                     />
                   </button>
-
                 </div>
-
               </div>
 
-              {/* Monaco */}
               <div className="flex-1 min-h-0">
-
                 <Editor
                   height="100%"
                   language={getLanguageForMonaco(
@@ -1267,34 +1474,42 @@ const ProblemPage = () => {
                   options={{
                     fontSize:
                       editorFontSize,
+
                     minimap: {
                       enabled: false,
                     },
+
                     automaticLayout:
                       true,
+
                     readOnly:
                       isBusy,
+
                     cursorStyle:
                       'line',
+
                     mouseWheelZoom:
                       true,
+
                     padding: {
                       top: 12,
                       bottom: 12,
                     },
+
                     scrollBeyondLastLine:
                       false,
-                    smoothScrolling: true,
+
+                    smoothScrolling:
+                      true,
+
                     tabSize: 2,
+
                     wordWrap: 'on',
                   }}
                 />
-
               </div>
 
-              {/* Editor Footer */}
               <div className="shrink-0 min-h-16 border-t border-base-300 bg-base-100 flex items-center justify-between gap-3 px-4 py-3">
-
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
@@ -1308,63 +1523,65 @@ const ProblemPage = () => {
                 </button>
 
                 <div className="flex items-center gap-2">
-
                   <button
                     type="button"
-                    className={`btn btn-outline btn-sm ${
-                      isRunning
-                        ? 'loading'
-                        : ''
-                    }`}
+                    className="btn btn-outline btn-sm"
                     onClick={handleRun}
-                    disabled={isBusy}
+                    disabled={
+                      isBusy ||
+                      !problem
+                    }
                   >
-                    {!isRunning && (
-                      <Play size={15} />
+                    {isRunning ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs" />
+                        Running
+                      </>
+                    ) : (
+                      <>
+                        <Play
+                          size={15}
+                        />
+                        Run
+                      </>
                     )}
-
-                    {isRunning
-                      ? 'Running'
-                      : 'Run'}
                   </button>
 
                   <button
                     type="button"
-                    className={`btn btn-primary btn-sm ${
-                      isSubmitting
-                        ? 'loading'
-                        : ''
-                    }`}
+                    className="btn btn-primary btn-sm"
                     onClick={
                       handleSubmitCode
                     }
-                    disabled={isBusy}
+                    disabled={
+                      isBusy ||
+                      !problem
+                    }
                   >
-                    {!isSubmitting && (
-                      <Send size={15} />
+                    {isSubmitting ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs" />
+                        Submitting
+                      </>
+                    ) : (
+                      <>
+                        <Send
+                          size={15}
+                        />
+                        Submit
+                      </>
                     )}
-
-                    {isSubmitting
-                      ? 'Submitting'
-                      : 'Submit'}
                   </button>
-
                 </div>
-
               </div>
-
             </div>
           )}
 
-          {/* Testcase */}
           {activeRightTab ===
             'testcase' && (
             <div className="flex-1 min-h-0 overflow-y-auto p-5">
-
               <div className="flex items-center justify-between mb-5">
-
                 <div>
-
                   <h3 className="text-lg font-bold">
                     Test Results
                   </h3>
@@ -1373,15 +1590,23 @@ const ProblemPage = () => {
                     Run your code against
                     the visible test cases.
                   </p>
-
                 </div>
 
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() =>
+                    setActiveRightTab(
+                      'code'
+                    )
+                  }
+                >
+                  Back to Code
+                </button>
               </div>
 
               {!runResult ? (
-
                 <div className="border border-dashed border-base-300 rounded-2xl p-8 text-center">
-
                   <Play
                     size={28}
                     className="mx-auto text-base-content/30"
@@ -1391,11 +1616,8 @@ const ProblemPage = () => {
                     Click Run to test
                     your solution.
                   </p>
-
                 </div>
-
               ) : (
-
                 <div
                   className={`rounded-2xl border p-5 ${
                     runResult.success
@@ -1403,9 +1625,7 @@ const ProblemPage = () => {
                       : 'border-error/30 bg-error/5'
                   }`}
                 >
-
                   <div className="flex items-center gap-3">
-
                     {runResult.success ? (
                       <CheckCircle2
                         className="text-success"
@@ -1419,7 +1639,6 @@ const ProblemPage = () => {
                     )}
 
                     <div>
-
                       <h4 className="font-bold">
                         {runResult.success
                           ? 'All test cases passed'
@@ -1432,58 +1651,50 @@ const ProblemPage = () => {
                           : runResult.error ||
                             'One or more test cases did not pass.'}
                       </p>
-
                     </div>
-
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mt-5">
-
                     <div className="rounded-xl bg-base-100 border border-base-300 p-3">
-
                       <p className="text-xs text-base-content/50">
                         Runtime
                       </p>
 
                       <p className="font-semibold mt-1">
-                        {runResult.runtime}{' '}
+                        {
+                          runResult.runtime
+                        }{' '}
                         sec
                       </p>
-
                     </div>
 
                     <div className="rounded-xl bg-base-100 border border-base-300 p-3">
-
                       <p className="text-xs text-base-content/50">
                         Memory
                       </p>
 
                       <p className="font-semibold mt-1">
-                        {runResult.memory}{' '}
+                        {
+                          runResult.memory
+                        }{' '}
                         KB
                       </p>
-
                     </div>
-
                   </div>
 
                   {runResult.testCases
                     ?.length > 0 && (
                     <div className="mt-5 space-y-3">
-
                       {runResult.testCases.map(
                         (
                           testCase,
                           index
                         ) => (
-
                           <div
                             key={index}
                             className="bg-base-100 border border-base-300 rounded-xl p-4"
                           >
-
                             <div className="flex items-center justify-between mb-3">
-
                               <span className="font-semibold text-sm">
                                 Test Case{' '}
                                 {index + 1}
@@ -1497,18 +1708,14 @@ const ProblemPage = () => {
                                     : 'text-error text-xs font-medium'
                                 }
                               >
-                                {testCase.status_id ===
-                                3
-                                  ? 'Passed'
-                                  : 'Failed'}
+                                {getRunTestCaseStatus(
+                                  testCase
+                                )}
                               </span>
-
                             </div>
 
                             <div className="space-y-3 font-mono text-xs">
-
                               <div>
-
                                 <p className="text-base-content/50 mb-1">
                                   Input
                                 </p>
@@ -1518,11 +1725,9 @@ const ProblemPage = () => {
                                     testCase.stdin
                                   }
                                 </pre>
-
                               </div>
 
                               <div>
-
                                 <p className="text-base-content/50 mb-1">
                                   Expected
                                 </p>
@@ -1532,48 +1737,33 @@ const ProblemPage = () => {
                                     testCase.expected_output
                                   }
                                 </pre>
-
                               </div>
 
                               <div>
-
                                 <p className="text-base-content/50 mb-1">
                                   Output
                                 </p>
 
                                 <pre className="bg-base-200 rounded-lg p-3 overflow-x-auto">
-                                  {
-                                    testCase.stdout ||
-                                    'No output'
-                                  }
+                                  {testCase.stdout ||
+                                    'No output'}
                                 </pre>
-
                               </div>
-
                             </div>
-
                           </div>
-
                         )
                       )}
-
                     </div>
                   )}
-
                 </div>
-
               )}
-
             </div>
           )}
 
-          {/* Result */}
           {activeRightTab ===
             'result' && (
             <div className="flex-1 min-h-0 overflow-y-auto p-5">
-
               <div className="mb-5">
-
                 <h3 className="text-lg font-bold">
                   Submission Result
                 </h3>
@@ -1582,13 +1772,10 @@ const ProblemPage = () => {
                   Final evaluation from the
                   hidden test cases.
                 </p>
-
               </div>
 
               {!submitResult ? (
-
                 <div className="border border-dashed border-base-300 rounded-2xl p-8 text-center">
-
                   <Send
                     size={28}
                     className="mx-auto text-base-content/30"
@@ -1598,11 +1785,8 @@ const ProblemPage = () => {
                     Submit your solution to
                     see the result.
                   </p>
-
                 </div>
-
               ) : (
-
                 <div
                   className={`rounded-2xl border p-6 ${
                     submitResult.accepted
@@ -1610,9 +1794,7 @@ const ProblemPage = () => {
                       : 'border-error/30 bg-error/5'
                   }`}
                 >
-
                   <div className="flex items-start gap-4">
-
                     {submitResult.accepted ? (
                       <div className="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center">
                         <CheckCircle2
@@ -1630,7 +1812,6 @@ const ProblemPage = () => {
                     )}
 
                     <div>
-
                       <h4 className="text-xl font-bold">
                         {submitResult.accepted
                           ? 'Accepted'
@@ -1643,15 +1824,11 @@ const ProblemPage = () => {
                           : submitResult.error ||
                             'Your solution did not pass all test cases.'}
                       </p>
-
                     </div>
-
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
-
                     <div className="bg-base-100 border border-base-300 rounded-xl p-4">
-
                       <p className="text-xs text-base-content/50">
                         Test Cases
                       </p>
@@ -1665,11 +1842,9 @@ const ProblemPage = () => {
                           submitResult.totalTestCases
                         }
                       </p>
-
                     </div>
 
                     <div className="bg-base-100 border border-base-300 rounded-xl p-4">
-
                       <p className="text-xs text-base-content/50">
                         Runtime
                       </p>
@@ -1680,11 +1855,9 @@ const ProblemPage = () => {
                         }{' '}
                         sec
                       </p>
-
                     </div>
 
                     <div className="bg-base-100 border border-base-300 rounded-xl p-4">
-
                       <p className="text-xs text-base-content/50">
                         Memory
                       </p>
@@ -1695,33 +1868,23 @@ const ProblemPage = () => {
                         }{' '}
                         KB
                       </p>
-
                     </div>
-
                   </div>
 
                   {submitResult.accepted && (
                     <div className="mt-6 flex items-center gap-2 text-success text-sm font-medium">
-
                       <CheckCircle2
                         size={17}
                       />
-
                       Problem marked as
                       solved.
-
                     </div>
                   )}
-
                 </div>
-
               )}
-
             </div>
           )}
-
         </div>
-
       </div>
     </div>
   );

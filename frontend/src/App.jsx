@@ -20,14 +20,18 @@ function App() {
   const {
     isAuthenticated,
     user,
-    loading
+    authChecked
   } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(checkAuth());
   }, [dispatch]);
 
-  if (loading) {
+  // Only block the whole app on the very first auth check.
+  // Actions like updateProfile/changePassword/deleteProfile must
+  // NOT unmount the app, or they wipe out local component state
+  // (like a toast) mid-request.
+  if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <span className="loading loading-spinner loading-lg"></span>
