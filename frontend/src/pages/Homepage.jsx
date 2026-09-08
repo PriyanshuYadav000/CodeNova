@@ -1369,5 +1369,4 @@ const getDifficultyBadgeColor = (
       return 'badge-neutral';
   }
 };
-
 export default Homepage;
