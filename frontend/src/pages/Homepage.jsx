@@ -16,15 +16,18 @@ import {
   Code2,
   Target,
   MessageSquare,
-  Users,
   ShoppingBag,
   ChevronDown,
   Brain,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import axiosClient from '../utils/axiosClient';
 import { logoutUser } from '../authSlice';
+
+const PROBLEMS_PER_PAGE = 5;
 
 function Homepage() {
   const dispatch = useDispatch();
@@ -32,8 +35,21 @@ function Homepage() {
 
   const [problems, setProblems] = useState([]);
   const [solvedProblems, setSolvedProblems] = useState([]);
+
   const [loading, setLoading] = useState(true);
+  const [problemsLoading, setProblemsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: PROBLEMS_PER_PAGE,
+    totalProblems: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [filters, setFilters] = useState({
     difficulty: 'all',
@@ -44,53 +60,100 @@ function Homepage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchHomepageData = async () => {
+    const fetchProblems = async () => {
       try {
-        setLoading(true);
+        setProblemsLoading(true);
         setError(null);
 
         const problemsResponse = await axiosClient.get(
-          '/problem/getAllProblem'
+          '/problem/getAllProblem',
+          {
+            params: {
+              page: currentPage,
+              limit: PROBLEMS_PER_PAGE,
+              search: searchQuery.trim(),
+              difficulty: filters.difficulty,
+              tag: filters.tag,
+            },
+          }
         );
 
         setProblems(
-          Array.isArray(problemsResponse.data)
-            ? problemsResponse.data
+          Array.isArray(
+            problemsResponse.data?.problems
+          )
+            ? problemsResponse.data.problems
             : []
         );
 
-        if (user) {
-          const solvedResponse = await axiosClient.get(
-            '/problem/problemSolvedByUser'
-          );
-
-          setSolvedProblems(
-            Array.isArray(solvedResponse.data)
-              ? solvedResponse.data
-              : []
-          );
-        } else {
-          setSolvedProblems([]);
-        }
+        setPagination(
+          problemsResponse.data?.pagination || {
+            page: currentPage,
+            limit: PROBLEMS_PER_PAGE,
+            totalProblems: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          }
+        );
       } catch (error) {
-        console.error('Error loading homepage:', error);
+        console.error(
+          'Error loading problems:',
+          error
+        );
 
         setError(
           error.response?.data?.message ||
             'Unable to load problems. Please try again.'
         );
       } finally {
+        setProblemsLoading(false);
         setLoading(false);
       }
     };
 
-    fetchHomepageData();
+    fetchProblems();
+  }, [
+    currentPage,
+    searchQuery,
+    filters.difficulty,
+    filters.tag,
+  ]);
+
+  useEffect(() => {
+    const fetchSolvedProblems = async () => {
+      if (!user) {
+        setSolvedProblems([]);
+        return;
+      }
+
+      try {
+        const solvedResponse = await axiosClient.get(
+          '/problem/problemSolvedByUser'
+        );
+
+        setSolvedProblems(
+          Array.isArray(solvedResponse.data)
+            ? solvedResponse.data
+            : []
+        );
+      } catch (error) {
+        console.error(
+          'Error loading solved problems:',
+          error
+        );
+      }
+    };
+
+    fetchSolvedProblems();
   }, [user]);
 
   const solvedProblemIds = useMemo(
     () =>
       new Set(
-        solvedProblems.map((problem) => problem._id)
+        solvedProblems.map(
+          (problem) => problem._id
+        )
       ),
     [solvedProblems]
   );
@@ -99,83 +162,81 @@ function Homepage() {
     const tags = new Set();
 
     problems.forEach((problem) => {
-      const problemTags = Array.isArray(problem.tags)
-        ? problem.tags
-        : problem.tags
-          ? [problem.tags]
-          : [];
+      const problemTags =
+        Array.isArray(problem.tags)
+          ? problem.tags
+          : problem.tags
+            ? [problem.tags]
+            : [];
 
-      problemTags.forEach((tag) => tags.add(tag));
+      problemTags.forEach((tag) =>
+        tags.add(tag)
+      );
     });
 
     return [...tags].sort();
   }, [problems]);
 
   const filteredProblems = useMemo(() => {
-    const normalizedSearch =
-      searchQuery.trim().toLowerCase();
-
     return problems.filter((problem) => {
-      const difficultyMatch =
-        filters.difficulty === 'all' ||
-        problem.difficulty === filters.difficulty;
-
-      const problemTags = Array.isArray(problem.tags)
-        ? problem.tags
-        : problem.tags
-          ? [problem.tags]
-          : [];
-
-      const tagMatch =
-        filters.tag === 'all' ||
-        problemTags.includes(filters.tag);
-
       const statusMatch =
         filters.status === 'all' ||
         (filters.status === 'solved' &&
-          solvedProblemIds.has(problem._id)) ||
+          solvedProblemIds.has(
+            problem._id
+          )) ||
         (filters.status === 'unsolved' &&
-          !solvedProblemIds.has(problem._id));
+          !solvedProblemIds.has(
+            problem._id
+          ));
 
-      const searchMatch =
-        !normalizedSearch ||
-        problem.title
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        problemTags.some((tag) =>
-          tag.toLowerCase().includes(normalizedSearch)
-        );
-
-      return (
-        difficultyMatch &&
-        tagMatch &&
-        statusMatch &&
-        searchMatch
-      );
+      return statusMatch;
     });
   }, [
-    filters,
+    filters.status,
     problems,
     solvedProblemIds,
-    searchQuery,
   ]);
 
-  const totalProblems = problems.length;
-  const totalSolved = solvedProblems.length;
+  const totalProblems =
+    pagination.totalProblems;
+
+  const totalSolved =
+    solvedProblems.length;
 
   const completionPercentage =
     totalProblems > 0
       ? Math.round(
-          (totalSolved / totalProblems) * 100
+          (totalSolved /
+            totalProblems) *
+            100
         )
       : 0;
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      await dispatch(
+        logoutUser()
+      ).unwrap();
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error(
+        'Logout failed:',
+        error
+      );
     }
+  };
+
+  const handlePageChange = (page) => {
+    if (
+      page < 1 ||
+      page > pagination.totalPages ||
+      page === currentPage ||
+      problemsLoading
+    ) {
+      return;
+    }
+
+    setCurrentPage(page);
   };
 
   const resetFilters = () => {
@@ -186,7 +247,61 @@ function Homepage() {
     });
 
     setSearchQuery('');
+
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
   };
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handleDifficultyChange = (
+    value
+  ) => {
+    setFilters((prev) => ({
+      ...prev,
+      difficulty: value,
+    }));
+
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handleTagChange = (value) => {
+    setFilters((prev) => ({
+      ...prev,
+      tag: value,
+    }));
+
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handleStatusChange = (value) => {
+    setFilters((prev) => ({
+      ...prev,
+      status: value,
+    }));
+
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  };
+
+  const pageNumbers = Array.from(
+    {
+      length: pagination.totalPages,
+    },
+    (_, index) => index + 1
+  );
 
   if (loading) {
     return (
@@ -196,13 +311,14 @@ function Homepage() {
     );
   }
 
-  if (error) {
+  if (error && problems.length === 0) {
     return (
       <div className="min-h-screen bg-base-200">
 
         <nav className="navbar bg-base-100 border-b border-base-300 px-4 sticky top-0 z-50">
 
           <div className="navbar-start">
+
             <NavLink
               to="/"
               className="flex items-center gap-2"
@@ -210,6 +326,7 @@ function Homepage() {
               <CodeNovaLogo />
 
               <div className="hidden sm:block">
+
                 <div className="font-bold text-lg leading-none">
                   CodeNova
                 </div>
@@ -217,8 +334,11 @@ function Homepage() {
                 <div className="text-[10px] text-base-content/50">
                   AI-powered coding
                 </div>
+
               </div>
+
             </NavLink>
+
           </div>
 
           <div className="navbar-end flex items-center gap-2">
@@ -272,6 +392,7 @@ function Homepage() {
             <CodeNovaLogo />
 
             <div className="hidden sm:block">
+
               <div className="font-bold text-lg leading-none">
                 CodeNova
               </div>
@@ -279,6 +400,7 @@ function Homepage() {
               <div className="text-[10px] text-base-content/50">
                 AI-powered coding
               </div>
+
             </div>
 
           </NavLink>
@@ -346,6 +468,7 @@ function Homepage() {
               <span className="badge badge-warning badge-xs">
                 Soon
               </span>
+
             </NavLink>
 
           </div>
@@ -364,9 +487,11 @@ function Homepage() {
                 className="btn btn-ghost btn-sm gap-2"
               >
                 <LogIn size={17} />
+
                 <span className="hidden sm:inline">
                   Login
                 </span>
+
               </NavLink>
 
               <NavLink
@@ -374,9 +499,11 @@ function Homepage() {
                 className="btn btn-primary btn-sm gap-2"
               >
                 <UserPlus size={17} />
+
                 <span>
                   Sign Up
                 </span>
+
               </NavLink>
 
             </div>
@@ -405,11 +532,14 @@ function Homepage() {
                   <div className="avatar placeholder">
 
                     <div className="bg-primary text-primary-content rounded-full w-8">
+
                       <span className="font-bold">
                         {user?.firstName
                           ?.charAt(0)
-                          ?.toUpperCase() || 'U'}
+                          ?.toUpperCase() ||
+                          'U'}
                       </span>
+
                     </div>
 
                   </div>
@@ -536,6 +666,7 @@ function Homepage() {
             <span className="badge badge-warning badge-xs">
               Soon
             </span>
+
           </NavLink>
 
         </div>
@@ -790,7 +921,7 @@ function Homepage() {
                 {filteredProblems.length}
               </span>{' '}
 
-              of {problems.length}
+              of {pagination.totalProblems}
 
             </div>
 
@@ -819,7 +950,7 @@ function Homepage() {
                   placeholder="Search problems..."
                   value={searchQuery}
                   onChange={(e) =>
-                    setSearchQuery(
+                    handleSearchChange(
                       e.target.value
                     )
                   }
@@ -831,10 +962,9 @@ function Homepage() {
                 className="select select-bordered"
                 value={filters.status}
                 onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    status: e.target.value,
-                  }))
+                  handleStatusChange(
+                    e.target.value
+                  )
                 }
               >
                 <option value="all">
@@ -848,16 +978,16 @@ function Homepage() {
                 <option value="unsolved">
                   Unsolved
                 </option>
+
               </select>
 
               <select
                 className="select select-bordered"
                 value={filters.difficulty}
                 onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    difficulty: e.target.value,
-                  }))
+                  handleDifficultyChange(
+                    e.target.value
+                  )
                 }
               >
                 <option value="all">
@@ -875,37 +1005,41 @@ function Homepage() {
                 <option value="hard">
                   Hard
                 </option>
+
               </select>
 
               <select
                 className="select select-bordered"
                 value={filters.tag}
                 onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    tag: e.target.value,
-                  }))
+                  handleTagChange(
+                    e.target.value
+                  )
                 }
               >
                 <option value="all">
                   All Tags
                 </option>
 
-                {availableTags.map((tag) => (
-                  <option
-                    key={tag}
-                    value={tag}
-                  >
-                    {tag}
-                  </option>
-                ))}
+                {availableTags.map(
+                  (tag) => (
+                    <option
+                      key={tag}
+                      value={tag}
+                    >
+                      {tag}
+                    </option>
+                  )
+                )}
 
               </select>
 
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={resetFilters}
+                onClick={
+                  resetFilters
+                }
               >
                 Reset
               </button>
@@ -916,133 +1050,252 @@ function Homepage() {
 
         </section>
 
-        {/* Problems List */}
-        {filteredProblems.length === 0 ? (
+        {/* Problems */}
+        <section className="relative">
 
-          <div className="card bg-base-100 shadow-xl">
+          {problemsLoading && (
+            <div className="absolute inset-0 z-10 bg-base-200/60 backdrop-blur-[1px] flex items-start justify-center pt-8">
 
-            <div className="card-body items-center text-center py-12">
+              <div className="bg-base-100 border border-base-300 shadow-lg rounded-xl px-5 py-3 flex items-center gap-3">
 
-              <h2 className="card-title">
-                No problems found
-              </h2>
+                <span className="loading loading-spinner loading-sm" />
 
-              <p className="text-base-content/60">
-                Try changing your filters or search.
-              </p>
+                <span className="text-sm font-medium">
+                  Loading problems...
+                </span>
+
+              </div>
+
+            </div>
+          )}
+
+          {filteredProblems.length === 0 ? (
+
+            <div className="card bg-base-100 shadow-xl">
+
+              <div className="card-body items-center text-center py-12">
+
+                <h2 className="card-title">
+                  No problems found
+                </h2>
+
+                <p className="text-base-content/60">
+                  Try changing your filters or search.
+                </p>
+
+                <button
+                  type="button"
+                  className="btn btn-primary mt-2"
+                  onClick={
+                    resetFilters
+                  }
+                >
+                  Clear Filters
+                </button>
+
+              </div>
+
+            </div>
+
+          ) : (
+
+            <div className="grid gap-4">
+
+              {filteredProblems.map(
+                (problem) => {
+
+                  const problemTags =
+                    Array.isArray(
+                      problem.tags
+                    )
+                      ? problem.tags
+                      : problem.tags
+                        ? [problem.tags]
+                        : [];
+
+                  const isSolved =
+                    solvedProblemIds.has(
+                      problem._id
+                    );
+
+                  return (
+
+                    <div
+                      key={problem._id}
+                      className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+                    >
+
+                      <div className="card-body">
+
+                        <div className="flex items-center justify-between gap-4">
+
+                          <h3 className="card-title">
+
+                            <NavLink
+                              to={
+                                user
+                                  ? `/problem/${problem._id}`
+                                  : '/login'
+                              }
+                              className="hover:text-primary transition-colors"
+                            >
+                              {
+                                problem.title
+                              }
+                            </NavLink>
+
+                          </h3>
+
+                          {user &&
+                            isSolved && (
+
+                              <div className="badge badge-success gap-2">
+
+                                <CheckCircle2
+                                  size={14}
+                                />
+
+                                Solved
+
+                              </div>
+
+                            )}
+
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 mt-2">
+
+                          <div
+                            className={`badge ${getDifficultyBadgeColor(
+                              problem.difficulty
+                            )}`}
+                          >
+                            {capitalize(
+                              problem.difficulty
+                            )}
+                          </div>
+
+                          {problemTags.map(
+                            (tag) => (
+
+                              <div
+                                key={tag}
+                                className="badge badge-info badge-outline"
+                              >
+                                {tag}
+                              </div>
+
+                            )
+                          )}
+
+                        </div>
+
+                        {!user && (
+
+                          <div className="mt-3 text-sm text-base-content/50">
+                            Login to open and solve this problem.
+                          </div>
+
+                        )}
+
+                      </div>
+
+                    </div>
+
+                  );
+                }
+              )}
+
+            </div>
+
+          )}
+
+        </section>
+
+        {/* Pagination */}
+        {pagination.totalPages >
+          1 && (
+
+          <section className="flex justify-center mt-8 mb-6">
+
+            <div className="join">
 
               <button
                 type="button"
-                className="btn btn-primary mt-2"
-                onClick={resetFilters}
+                className="join-item btn btn-sm"
+                disabled={
+                  !pagination.hasPreviousPage ||
+                  problemsLoading
+                }
+                onClick={() =>
+                  handlePageChange(
+                    currentPage - 1
+                  )
+                }
               >
-                Clear Filters
+                <ChevronLeft
+                  size={16}
+                />
+
+                <span className="hidden sm:inline">
+                  Previous
+                </span>
+
+              </button>
+
+              {pageNumbers.map(
+                (page) => (
+
+                  <button
+                    key={page}
+                    type="button"
+                    className={`join-item btn btn-sm ${
+                      currentPage ===
+                      page
+                        ? 'btn-primary'
+                        : ''
+                    }`}
+                    disabled={
+                      problemsLoading
+                    }
+                    onClick={() =>
+                      handlePageChange(
+                        page
+                      )
+                    }
+                  >
+                    {page}
+                  </button>
+
+                )
+              )}
+
+              <button
+                type="button"
+                className="join-item btn btn-sm"
+                disabled={
+                  !pagination.hasNextPage ||
+                  problemsLoading
+                }
+                onClick={() =>
+                  handlePageChange(
+                    currentPage + 1
+                  )
+                }
+              >
+                <span className="hidden sm:inline">
+                  Next
+                </span>
+
+                <ChevronRight
+                  size={16}
+                />
+
               </button>
 
             </div>
 
-          </div>
-
-        ) : (
-
-          <div className="grid gap-4">
-
-            {filteredProblems.map((problem) => {
-
-              const problemTags = Array.isArray(
-                problem.tags
-              )
-                ? problem.tags
-                : problem.tags
-                  ? [problem.tags]
-                  : [];
-
-              const isSolved =
-                solvedProblemIds.has(
-                  problem._id
-                );
-
-              return (
-
-                <div
-                  key={problem._id}
-                  className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-                >
-
-                  <div className="card-body">
-
-                    <div className="flex items-center justify-between gap-4">
-
-                      <h3 className="card-title">
-
-                        <NavLink
-                          to={
-                            user
-                              ? `/problem/${problem._id}`
-                              : '/login'
-                          }
-                          className="hover:text-primary transition-colors"
-                        >
-                          {problem.title}
-                        </NavLink>
-
-                      </h3>
-
-                      {user && isSolved && (
-
-                        <div className="badge badge-success gap-2">
-
-                          <CheckCircle2 size={14} />
-
-                          Solved
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mt-2">
-
-                      <div
-                        className={`badge ${getDifficultyBadgeColor(
-                          problem.difficulty
-                        )}`}
-                      >
-                        {capitalize(
-                          problem.difficulty
-                        )}
-                      </div>
-
-                      {problemTags.map((tag) => (
-
-                        <div
-                          key={tag}
-                          className="badge badge-info badge-outline"
-                        >
-                          {tag}
-                        </div>
-
-                      ))}
-
-                    </div>
-
-                    {!user && (
-
-                      <div className="mt-3 text-sm text-base-content/50">
-                        Login to open and solve this problem.
-                      </div>
-
-                    )}
-
-                  </div>
-
-                </div>
-
-              );
-            })}
-
-          </div>
+          </section>
 
         )}
 
@@ -1106,8 +1359,12 @@ const capitalize = (value) => {
   );
 };
 
-const getDifficultyBadgeColor = (difficulty) => {
-  switch (difficulty?.toLowerCase()) {
+const getDifficultyBadgeColor = (
+  difficulty
+) => {
+  switch (
+    difficulty?.toLowerCase()
+  ) {
     case 'easy':
       return 'badge-success';
 

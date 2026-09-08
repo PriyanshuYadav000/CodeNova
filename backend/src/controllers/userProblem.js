@@ -59,6 +59,8 @@ const normalizeTags = (tags) => {
   return values;
 };
 
+
+
 const createProblemRelations = async (
   tx,
   problemId,
@@ -484,46 +486,150 @@ const getProblemById = async (req, res, next) => {
 
 const getAllProblem = async (req, res, next) => {
   try {
-    const cacheKey = "problems:all";
+    const parsedPage = Number(req.query.page);
+    const parsedLimit = Number(req.query.limit);
 
-    const cachedProblems =
-      await getCache(cacheKey);
+    const page =
+      Number.isInteger(parsedPage) &&
+      parsedPage > 0
+        ? parsedPage
+        : 1;
 
-    if (cachedProblems) {
-      return res
-        .status(200)
-        .send(cachedProblems);
-    }
+    const limit =
+      Number.isInteger(parsedLimit) &&
+      parsedLimit > 0 &&
+      parsedLimit <= 50
+        ? parsedLimit
+        : 10;
 
-    const getProblem =
-      await prisma.problem.findMany({
-        select: {
-          id: true,
-          title: true,
-          difficulty: true,
-          problemTags: {
-            include: {
-              tag: true,
+    const search =
+      typeof req.query.search === 'string'
+        ? req.query.search.trim()
+        : '';
+
+    const difficulty =
+      typeof req.query.difficulty === 'string' &&
+      req.query.difficulty !== 'all'
+        ? req.query.difficulty.trim().toLowerCase()
+        : '';
+
+    const tag =
+      typeof req.query.tag === 'string' &&
+      req.query.tag !== 'all'
+        ? req.query.tag.trim()
+        : '';
+
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(search
+        ? {
+            OR: [
+              {
+                title: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                description: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                problemTags: {
+                  some: {
+                    tag: {
+                      name: {
+                        contains: search,
+                        mode: 'insensitive',
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+
+      ...(difficulty
+        ? {
+            difficulty,
+          }
+        : {}),
+
+      ...(tag
+        ? {
+            problemTags: {
+              some: {
+                tag: {
+                  name: tag,
+                },
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [totalProblems, problems] =
+      await Promise.all([
+        prisma.problem.count({
+          where,
+        }),
+
+        prisma.problem.findMany({
+          where,
+
+          skip,
+          take: limit,
+
+          orderBy: {
+            title: 'asc',
+          },
+
+          select: {
+            id: true,
+            title: true,
+            difficulty: true,
+
+            problemTags: {
+              include: {
+                tag: true,
+              },
             },
           },
-        },
-      });
+        }),
+      ]);
 
-    if (getProblem.length === 0) {
+    if (totalProblems === 0) {
       throw new AppError(
-        "Problem not found.",
+        'Problem not found.',
         404,
-        "NOT_FOUND"
+        'NOT_FOUND'
       );
     }
 
-    const response =
-      getProblem.map(toProblemSummary);
-
-    await setCache(
-      cacheKey,
-      response
+    const totalPages = Math.ceil(
+      totalProblems / limit
     );
+
+    const response = {
+      problems: problems.map(
+        toProblemSummary
+      ),
+
+      pagination: {
+        page,
+        limit,
+        totalProblems,
+        totalPages,
+        hasNextPage:
+          page < totalPages,
+        hasPreviousPage:
+          page > 1,
+      },
+    };
 
     res.status(200).send(response);
   } catch (err) {
