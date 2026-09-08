@@ -5,13 +5,16 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = await axiosClient.post('/user/register', userData);
+      const response = await axiosClient.post(
+        '/user/register',
+        userData
+      );
 
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data || {
-          message: 'Unable to register. Please try again.'
+          message: 'Unable to register. Please try again.',
         }
       );
     }
@@ -22,13 +25,16 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials, { rejectWithValue }) => {
     try {
-      const response = await axiosClient.post('/user/login', credentials);
+      const response = await axiosClient.post(
+        '/user/login',
+        credentials
+      );
 
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data || {
-          message: 'Unable to login. Please try again.'
+          message: 'Unable to login. Please try again.',
         }
       );
     }
@@ -46,13 +52,13 @@ export const checkAuth = createAsyncThunk(
       if (error.response?.status === 401) {
         return rejectWithValue({
           code: 'AUTHENTICATION_ERROR',
-          message: 'Not authenticated'
+          message: 'Not authenticated',
         });
       }
 
       return rejectWithValue(
         error.response?.data || {
-          message: 'Unable to verify authentication.'
+          message: 'Unable to verify authentication.',
         }
       );
     }
@@ -60,11 +66,11 @@ export const checkAuth = createAsyncThunk(
 );
 
 export const updateProfile = createAsyncThunk(
-  "auth/updateProfile",
+  'auth/updateProfile',
   async (profileData, { rejectWithValue }) => {
     try {
       const response = await axiosClient.patch(
-        "/user/profile",
+        '/user/profile',
         profileData
       );
 
@@ -72,7 +78,7 @@ export const updateProfile = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data || {
-          message: "Unable to update profile."
+          message: 'Unable to update profile.',
         }
       );
     }
@@ -80,19 +86,19 @@ export const updateProfile = createAsyncThunk(
 );
 
 export const changePassword = createAsyncThunk(
-  "auth/changePassword",
+  'auth/changePassword',
   async (passwordData, { rejectWithValue }) => {
     try {
       const response = await axiosClient.patch(
-        "/user/password",
+        '/user/password',
         passwordData
       );
 
-      return response.data;
+      return response.data.data || response.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data || {
-          message: "Unable to change password."
+          message: 'Unable to change password.',
         }
       );
     }
@@ -100,18 +106,18 @@ export const changePassword = createAsyncThunk(
 );
 
 export const deleteProfile = createAsyncThunk(
-  "auth/deleteProfile",
+  'auth/deleteProfile',
   async (_, { rejectWithValue }) => {
     try {
       const response = await axiosClient.delete(
-        "/user/deleteProfile"
+        '/user/deleteProfile'
       );
 
-      return response.data;
+      return response.data.data || response.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data || {
-          message: "Unable to delete profile."
+          message: 'Unable to delete profile.',
         }
       );
     }
@@ -128,7 +134,7 @@ export const logoutUser = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data || {
-          message: 'Unable to logout. Please try again.'
+          message: 'Unable to logout. Please try again.',
         }
       );
     }
@@ -139,7 +145,15 @@ const initialState = {
   user: null,
   isAuthenticated: false,
   loading: false,
-  error: null
+  authChecked: false,
+  registerLoading: false,
+  loginLoading: false,
+  checkLoading: false,
+  profileLoading: false,
+  passwordLoading: false,
+  deleteLoading: false,
+  logoutLoading: false,
+  error: null,
 };
 
 const authSlice = createSlice({
@@ -149,17 +163,15 @@ const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
 
-      // ==========================================
-      // REGISTER
-      // ==========================================
-
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
+        state.registerLoading = true;
         state.error = null;
       })
 
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
+        state.registerLoading = false;
         state.user = action.payload;
         state.isAuthenticated = Boolean(action.payload);
         state.error = null;
@@ -167,6 +179,7 @@ const authSlice = createSlice({
 
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
+        state.registerLoading = false;
         state.user = null;
         state.isAuthenticated = false;
         state.error =
@@ -174,17 +187,15 @@ const authSlice = createSlice({
           'Something went wrong during registration.';
       })
 
-      // ==========================================
-      // LOGIN
-      // ==========================================
-
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
+        state.loginLoading = true;
         state.error = null;
       })
 
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
+        state.loginLoading = false;
         state.user = action.payload;
         state.isAuthenticated = Boolean(action.payload);
         state.error = null;
@@ -192,6 +203,7 @@ const authSlice = createSlice({
 
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
+        state.loginLoading = false;
         state.user = null;
         state.isAuthenticated = false;
         state.error =
@@ -199,17 +211,16 @@ const authSlice = createSlice({
           'Something went wrong during login.';
       })
 
-      // ==========================================
-      // CHECK AUTH
-      // ==========================================
-
       .addCase(checkAuth.pending, (state) => {
         state.loading = true;
+        state.checkLoading = true;
         state.error = null;
       })
 
       .addCase(checkAuth.fulfilled, (state, action) => {
         state.loading = false;
+        state.checkLoading = false;
+        state.authChecked = true;
         state.user = action.payload;
         state.isAuthenticated = Boolean(action.payload);
         state.error = null;
@@ -217,11 +228,14 @@ const authSlice = createSlice({
 
       .addCase(checkAuth.rejected, (state, action) => {
         state.loading = false;
+        state.checkLoading = false;
+        state.authChecked = true;
         state.user = null;
         state.isAuthenticated = false;
 
-        // A 401 simply means there is no active session.
-        if (action.payload?.code === 'AUTHENTICATION_ERROR') {
+        if (
+          action.payload?.code === 'AUTHENTICATION_ERROR'
+        ) {
           state.error = null;
         } else {
           state.error =
@@ -230,102 +244,82 @@ const authSlice = createSlice({
         }
       })
 
-      // ==========================================
-      // UPDATE PROFILE
-      // ==========================================
-
       .addCase(updateProfile.pending, (state) => {
-        state.loading = true;
+        state.profileLoading = true;
         state.error = null;
       })
 
       .addCase(updateProfile.fulfilled, (state, action) => {
-        state.loading = false;
+        state.profileLoading = false;
         state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
       })
 
       .addCase(updateProfile.rejected, (state, action) => {
-        state.loading = false;
+        state.profileLoading = false;
         state.error =
           action.payload?.message ||
           'Unable to update profile.';
       })
 
-      // ==========================================
-      // CHANGE PASSWORD
-      // ==========================================
-
       .addCase(changePassword.pending, (state) => {
-        state.loading = true;
+        state.passwordLoading = true;
         state.error = null;
       })
 
       .addCase(changePassword.fulfilled, (state) => {
-        state.loading = false;
+        state.passwordLoading = false;
         state.error = null;
       })
 
       .addCase(changePassword.rejected, (state, action) => {
-        state.loading = false;
+        state.passwordLoading = false;
         state.error =
           action.payload?.message ||
           'Unable to change password.';
       })
 
-      // ==========================================
-      // DELETE PROFILE
-      // ==========================================
-
       .addCase(deleteProfile.pending, (state) => {
-        state.loading = true;
+        state.deleteLoading = true;
         state.error = null;
       })
 
       .addCase(deleteProfile.fulfilled, (state) => {
-        state.loading = false;
+        state.deleteLoading = false;
         state.user = null;
         state.isAuthenticated = false;
         state.error = null;
       })
 
       .addCase(deleteProfile.rejected, (state, action) => {
-        state.loading = false;
+        state.deleteLoading = false;
         state.error =
           action.payload?.message ||
           'Unable to delete profile.';
       })
 
-      // ==========================================
-      // LOGOUT
-      // ==========================================
-
       .addCase(logoutUser.pending, (state) => {
-        state.loading = true;
+        state.logoutLoading = true;
         state.error = null;
       })
 
       .addCase(logoutUser.fulfilled, (state) => {
-        state.loading = false;
+        state.logoutLoading = false;
         state.user = null;
         state.isAuthenticated = false;
         state.error = null;
       })
 
       .addCase(logoutUser.rejected, (state, action) => {
-        state.loading = false;
-
-        // The session should be considered gone
-        // even if the logout request itself fails.
+        state.logoutLoading = false;
         state.user = null;
         state.isAuthenticated = false;
-
         state.error =
           action.payload?.message ||
           'Unable to logout. Please try again.';
       });
-  }
+  },
 });
 
-export default authSlice.reducer; 
+export default authSlice.reducer;
