@@ -117,6 +117,65 @@ const createLanguageArray = (items, valueField) => {
   });
 };
 
+/**
+ * Normalizes different possible backend response shapes for the
+ * "get all problems" endpoint into a plain array. Prevents a crash
+ * when the backend wraps the array in an object like
+ * { data: [...] } or { problems: [...] } instead of returning a
+ * raw array.
+ */
+const extractProblemsArray = (responseData) => {
+  if (Array.isArray(responseData)) {
+    return responseData;
+  }
+
+  if (!responseData || typeof responseData !== 'object') {
+    return [];
+  }
+
+  const possibleKeys = ['data', 'problems', 'result', 'problem', 'items'];
+
+  for (const key of possibleKeys) {
+    if (Array.isArray(responseData[key])) {
+      return responseData[key];
+    }
+  }
+
+  return [];
+};
+
+/**
+ * Normalizes different possible backend response shapes for the
+ * "get single problem" endpoint into a plain object. Prevents a
+ * crash when the backend wraps the problem in an object like
+ * { data: {...} } or { problem: {...} } instead of returning the
+ * problem directly.
+ */
+const extractProblemObject = (responseData) => {
+  if (!responseData || typeof responseData !== 'object') {
+    return null;
+  }
+
+  // Already looks like a problem object (has a title field).
+  if ('title' in responseData) {
+    return responseData;
+  }
+
+  const possibleKeys = ['data', 'problem', 'result'];
+
+  for (const key of possibleKeys) {
+    if (
+      responseData[key] &&
+      typeof responseData[key] === 'object' &&
+      'title' in responseData[key]
+    ) {
+      return responseData[key];
+    }
+  }
+
+  return responseData;
+};
+
 function UpdateProblem() {
   const navigate = useNavigate();
 
@@ -147,11 +206,8 @@ function UpdateProblem() {
   const [success, setSuccess] = useState(false);
 
   // ============================================================
-  // TOAST / POPUP NOTIFICATION (new)
+  // TOAST / POPUP NOTIFICATION
   // ============================================================
-  // A small floating popup shown at the top-right of the screen.
-  // It does NOT touch the existing layout/UI — it's an overlay,
-  // so nothing else on the page shifts or changes.
 
   const [toast, setToast] = useState({
     show: false,
@@ -162,7 +218,6 @@ function UpdateProblem() {
   const toastTimerRef = useRef(null);
 
   const showToast = (message, type = 'success') => {
-    // clear any pending auto-hide so rapid calls don't fight each other
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
     }
@@ -220,7 +275,7 @@ function UpdateProblem() {
         '/problem/getAllProblem'
       );
 
-      setProblems(response.data);
+      setProblems(extractProblemsArray(response.data));
     } catch (err) {
       console.error(
         'Failed to fetch problems:',
@@ -241,6 +296,10 @@ function UpdateProblem() {
             'Unable to load problems.'
         );
       }
+
+      // Keep problems as a safe empty array so the rest of the
+      // page (search, filters, etc.) never crashes on a bad response.
+      setProblems([]);
     } finally {
       setLoadingProblems(false);
     }
@@ -259,12 +318,16 @@ function UpdateProblem() {
       .trim()
       .toLowerCase();
 
+    const safeProblems = Array.isArray(problems)
+      ? problems
+      : [];
+
     if (!query) {
-      return problems;
+      return safeProblems;
     }
 
-    return problems.filter((item) =>
-      item.title
+    return safeProblems.filter((item) =>
+      String(item?.title || '')
         .toLowerCase()
         .includes(query)
     );
@@ -293,7 +356,17 @@ function UpdateProblem() {
         `/problem/admin/${problemId}`
       );
 
-      const data = response.data;
+      const data = extractProblemObject(response.data);
+
+      if (!data) {
+        setError(
+          'The server returned an unexpected response for this problem.'
+        );
+
+        setProblem(null);
+
+        return;
+      }
 
       setProblem(data);
 
@@ -368,6 +441,10 @@ function UpdateProblem() {
       } else if (err.response?.status === 403) {
         setError(
           'Administrator access is required.'
+        );
+      } else if (err.response?.status === 404) {
+        setError(
+          'This problem could not be found. It may have been deleted.'
         );
       } else {
         setError(
@@ -723,39 +800,40 @@ function UpdateProblem() {
       };
     }
 
-   for (const language of LANGUAGES) {
-    const starter = formData.startCode.find(
+    for (const language of LANGUAGES) {
+      const starter = formData.startCode.find(
         (item) =>
-            normalizeLanguage(item.language) ===
-            normalizeLanguage(language)
-    );
+          normalizeLanguage(item.language) ===
+          normalizeLanguage(language)
+      );
 
-    if (!starter?.initialCode?.trim()) {
+      if (!starter?.initialCode?.trim()) {
         return {
-        section: 'languages',
-        language,
-        message: `Starter code is required for ${language}.`,
-    };
-  }
-}
+          section: 'languages',
+          language,
+          message: `Starter code is required for ${language}.`,
+        };
+      }
+    }
 
     for (const language of LANGUAGES) {
-        const solution = formData.referenceSolution.find(
-            (item) =>
-                normalizeLanguage(item.language) ===
-                normalizeLanguage(language)
-        );
+      const solution = formData.referenceSolution.find(
+        (item) =>
+          normalizeLanguage(item.language) ===
+          normalizeLanguage(language)
+      );
 
-         if (!solution?.completeCode?.trim()) {
-            return {
-                section: 'languages',
-                language,
-                message: `Reference solution is required for ${language}.`,
-            };
-        }
+      if (!solution?.completeCode?.trim()) {
+        return {
+          section: 'languages',
+          language,
+          message: `Reference solution is required for ${language}.`,
+        };
+      }
     }
+
     return null;
-};
+  };
 
   // ============================================================
   // SAVE
@@ -783,7 +861,6 @@ function UpdateProblem() {
         validationError.message
       );
 
-      // NEW: popup for the missing/invalid field
       showToast(
         validationError.message,
         'error'
@@ -849,31 +926,32 @@ function UpdateProblem() {
 
       setSuccess(true);
 
-      // NEW: popup confirming the update
       showToast(
         'Problem updated successfully.',
         'success'
       );
 
-      // NEW: instantly sync the problems list (dropdown +
-      // Quick Select cards) with the values we just saved,
-      // so things like the difficulty badge (Easy -> Medium)
-      // update right away without a page reload.
+      // Instantly sync the problems list (dropdown + Quick Select
+      // cards) with the values we just saved. Guarded with
+      // Array.isArray so this never throws even if a previous
+      // fetch returned something unexpected.
       setProblems((previous) =>
-        previous.map((item) =>
-          item._id === selectedProblemId
-            ? {
-                ...item,
-                title: payload.title,
-                difficulty: payload.difficulty,
-                tags: payload.tags,
-              }
-            : item
-        )
+        Array.isArray(previous)
+          ? previous.map((item) =>
+              item._id === selectedProblemId
+                ? {
+                    ...item,
+                    title: payload.title,
+                    difficulty: payload.difficulty,
+                    tags: payload.tags,
+                  }
+                : item
+            )
+          : previous
       );
 
-      // Reload the saved problem so the editor
-      // reflects the actual backend state.
+      // Reload the saved problem so the editor reflects the
+      // actual backend state.
       await handleSelectProblem(
         selectedProblemId
       );
@@ -891,6 +969,12 @@ function UpdateProblem() {
       } else if (err.response?.status === 403) {
         message =
           'Administrator access is required.';
+      } else if (err.response?.status === 404) {
+        message =
+          'Update endpoint not found (404). Check that the update route matches your backend (e.g. /problem/update/:id) and that the problem still exists.';
+      } else if (!err.response) {
+        message =
+          'Could not reach the server. Check your network connection and API base URL.';
       } else {
         message =
           err.response?.data?.message ||
@@ -899,7 +983,6 @@ function UpdateProblem() {
 
       setError(message);
 
-      // NEW: popup for save failure
       showToast(message, 'error');
     } finally {
       setSaving(false);
@@ -914,7 +997,7 @@ function UpdateProblem() {
     <div className="min-h-screen bg-base-200">
 
       {/* ======================================================
-          TOAST / POPUP (new — floating, doesn't affect layout)
+          TOAST / POPUP (floating, doesn't affect layout)
       ====================================================== */}
 
       {toast.show && (
@@ -1055,7 +1138,7 @@ function UpdateProblem() {
               <div className="badge badge-primary badge-lg">
                 {loadingProblems
                   ? 'Loading...'
-                  : `${problems.length} problems`}
+                  : `${filteredProblems.length} problems`}
               </div>
             </div>
 
