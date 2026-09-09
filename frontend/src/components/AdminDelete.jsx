@@ -29,6 +29,35 @@ const getDifficultyBadge = (difficulty) => {
   }
 };
 
+/**
+ * Normalizes different possible backend response shapes into a plain array.
+ * Handles:
+ *   - response.data === [...]
+ *   - response.data.data === [...]
+ *   - response.data.problems === [...]
+ *   - response.data.result === [...]
+ *   - response.data.problem === [...] (typo-tolerant)
+ */
+const extractProblemsArray = (responseData) => {
+  if (Array.isArray(responseData)) {
+    return responseData;
+  }
+
+  if (!responseData || typeof responseData !== 'object') {
+    return [];
+  }
+
+  const possibleKeys = ['data', 'problems', 'result', 'problem', 'items'];
+
+  for (const key of possibleKeys) {
+    if (Array.isArray(responseData[key])) {
+      return responseData[key];
+    }
+  }
+
+  return [];
+};
+
 const AdminDelete = () => {
   const navigate = useNavigate();
 
@@ -95,9 +124,7 @@ const AdminDelete = () => {
         '/problem/getAllProblem'
       );
 
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data?.data || [];
+      const data = extractProblemsArray(response.data);
 
       setProblems(data);
     } catch (err) {
@@ -212,23 +239,25 @@ const AdminDelete = () => {
       return;
     }
 
+    const problemId = selectedProblem._id;
+    const problemTitle = selectedProblem.title || 'Problem';
+
     try {
       setDeleting(true);
       setError(null);
       setSuccess(false);
-
-      const problemId =
-        selectedProblem._id;
-
-      const problemTitle =
-        selectedProblem.title ||
-        'Problem';
 
       await axiosClient.delete(
         `/problem/delete/${problemId}`
       );
 
       // Remove the deleted problem from local UI immediately.
+      // NOTE: We intentionally do NOT refetch from the backend here.
+      // A refetch right after delete can wipe the list if the
+      // getAllProblem response shape ever changes or momentarily
+      // returns something unexpected (e.g. cache lag, different
+      // response key). Local removal is the source of truth for
+      // the UI since we already know the delete succeeded.
       setProblems((current) =>
         current.filter(
           (problem) =>
@@ -244,13 +273,6 @@ const AdminDelete = () => {
         'success',
         `${problemTitle} deleted successfully.`
       );
-
-      /*
-       * Refresh from backend so the frontend
-       * reflects the actual database/cache state.
-       */
-      await fetchProblems();
-
     } catch (err) {
       console.error(
         'Failed to delete problem:',
@@ -267,6 +289,17 @@ const AdminDelete = () => {
       } else if (err.response?.status === 403) {
         message =
           'Administrator access is required.';
+      } else if (err.response?.status === 404) {
+        message =
+          'This problem was already removed or does not exist.';
+
+        // Keep UI in sync if backend says it's already gone.
+        setProblems((current) =>
+          current.filter(
+            (problem) =>
+              problem._id !== problemId
+          )
+        );
       } else {
         message =
           err.response?.data?.message ||
@@ -630,7 +663,9 @@ const AdminDelete = () => {
               </h2>
 
               <p className="text-base-content/50">
-                Try a different search term.
+                {problems.length === 0
+                  ? 'There are no problems to display.'
+                  : 'Try a different search term.'}
               </p>
 
             </div>
